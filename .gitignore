@@ -1,2 +1,76 @@
-test*
-__pycahce__/
+# .gitignore for initial_composition project
+# Generated to ignore common Python, virtualenv, editor, and Jupyter artifacts.
+
+# Byte-compiled / cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C extensions
+*.so
+
+# Distribution / packaging
+build/
+dist/
+*.egg-info/
+.eggs/
+pip-wheel-metadata/
+
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Unit test / coverage
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+pytest_cache/
+.pytest_cache/
+
+# Virtual environments
+venv/
+env/
+.venv/
+ENV/
+env.bak/
+venv.bak/
+__pypackages__/
+
+# Editor and IDE files
+.vscode/
+.idea/
+*.sublime-workspace
+*.sublime-project
+*.iml
+
+# Jupyter
+.ipynb_checkpoints/
+# If you want to ignore output cell metadata or outputs, add patterns here.
+
+# macOS / Windows
+.DS_Store
+Thumbs.db
+
+# Logs and databases
+*.log
+*.sqlite3
+*.db
+
+# Type checkers / caches
+.mypy_cache/
+typecheck/
+
+# Environment / secrets
+.env
+.env.*
+credentials
+secrets.json
+
+# temporary files
+.#*
+
+# test file
+test*.ipynb
