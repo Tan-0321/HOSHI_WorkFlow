@@ -73,4 +73,8 @@ secrets.json
 .#*
 
 # test file
-test*.ipynb
+*test*.ipynb
+*test*.txt
+
+# simulations
+simulations/
