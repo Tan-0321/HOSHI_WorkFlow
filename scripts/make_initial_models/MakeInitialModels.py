@@ -330,7 +330,8 @@ class HoshiModel:
                     "Faile to make input initial structure data with parameters: mass = %d, Z_rel = %d ", 
                     target_mass, new_z_rel         
                 )
-                present_input_structure_file = output_structure_file
+                return None
+            present_input_structure_file = output_structure_file
             
         return None
         
