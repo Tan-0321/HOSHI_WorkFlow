@@ -88,17 +88,149 @@ class HoshiHistory(HOSHI_Reader):
         self.var_names = self._get_var_names()
 
     def _get_var_names(self) -> list:
+        # Return variable names from the first header found in the file
         with open(self.path, 'r') as file:
             for line in file:
                 if line.startswith('#'):
                     header_line = line
                     break
-        
+
         cleaned_header = header_line.replace('#', '')
         cleaned_header = re.sub(r'\d+:', ' ', cleaned_header)
         variable_names = cleaned_header.split()
 
         return variable_names
+
+    def _find_run_headers(self) -> list:
+        """
+        Scan the summary file and return a list of tuples (header_line_str, header_line_index).
+        header_line_index is the 0-based line number where the header (starting with '#') appears.
+        """
+        headers = []
+        with open(self.path, 'r') as f:
+            for idx, line in enumerate(f):
+                if line.startswith('#'):
+                    headers.append((line.rstrip('\n'), idx))
+        return headers
+
+    def count_runs(self) -> int:
+        """Return how many runs (header blocks) are present in the summary file."""
+        return len(self._find_run_headers())
+
+    def list_runs(self) -> list:
+        """Return a list of run metadata dicts: {index(1-based), header, start_line, end_line, var_names}.
+
+        end_line is inclusive (0-based). If a run goes to EOF, end_line is the last line index.
+        """
+        headers = self._find_run_headers()
+        runs = []
+        if not headers:
+            return runs
+
+        # read total lines once to determine end boundaries
+        with open(self.path, 'r') as f:
+            all_lines = f.readlines()
+        total_lines = len(all_lines)
+
+        for i, (header, start_idx) in enumerate(headers):
+            if i + 1 < len(headers):
+                end_idx = headers[i + 1][1] - 1
+            else:
+                end_idx = total_lines - 1
+
+            # parse variable names from header
+            cleaned_header = header.replace('#', '')
+            cleaned_header = re.sub(r'\d+:', ' ', cleaned_header)
+            var_names = cleaned_header.split()
+
+            runs.append({
+                'index': i + 1,
+                'header': header,
+                'start_line': start_idx,
+                'end_line': end_idx,
+                'var_names': var_names,
+            })
+
+        return runs
+
+    def read_run(self, run_index: int = -1, dtype=float) -> pd.DataFrame:
+        """
+        Read a specific run block from the summary file and return it as a pandas DataFrame.
+
+        run_index: 1-based index of the run to read. Negative values follow Python convention (e.g. -1 -> last run).
+        Returns an empty DataFrame if the run has no data lines.
+        """
+        runs = self.list_runs()
+        if not runs:
+            logging.error('No runs (header lines) found in summary file.')
+            return pd.DataFrame()
+
+        # convert run_index to 0-based
+        if run_index < 0:
+            sel = runs[run_index]
+        else:
+            if run_index < 1 or run_index > len(runs):
+                logging.error(f'run_index out of range. Must be between 1 and {len(runs)}')
+                return pd.DataFrame()
+            sel = runs[run_index - 1]
+
+        var_names = sel['var_names']
+        data_start = sel['start_line'] + 1  # data begins after the header line
+        data_end = sel['end_line']
+        nrows = data_end - data_start + 1
+        if nrows <= 0:
+            # empty run
+            return pd.DataFrame(columns=var_names)
+
+        # Read as strings first to avoid hard failures when some columns contain
+        # non-numeric tokens (e.g. '6.670-321'). After reading, attempt to convert
+        # each column to numeric. If conversion fails for any non-empty value,
+        # keep that column as string.
+        df = pd.read_csv(
+            self.path,
+            comment='#',
+            delim_whitespace=True,
+            header=None,
+            names=var_names,
+            skiprows=data_start,
+            nrows=nrows,
+            dtype=str,
+            na_values=['', 'NaN', 'nan'],
+            keep_default_na=True,
+        )
+
+        # Try to coerce columns to numeric where possible
+        for col in df.columns:
+            col_series = df[col]
+            # mask of non-empty (non-NA and not just whitespace) entries
+            non_empty_mask = col_series.notna() & (col_series.str.strip() != '')
+            if not non_empty_mask.any():
+                # column entirely empty -> leave as is
+                continue
+
+            # attempt conversion
+            converted = pd.to_numeric(col_series, errors='coerce')
+
+            # if all non-empty entries were successfully converted (no NaN),
+            # use numeric dtype. Otherwise keep as original string values.
+            if not converted[non_empty_mask].isna().any():
+                # cast to requested dtype if it's a numeric type
+                try:
+                    if dtype in (float, 'float', 'float64'):
+                        df[col] = converted.astype(float)
+                    elif dtype in (int, 'int', 'int64'):
+                        df[col] = converted.astype('Int64')
+                    else:
+                        # default: assign converted numeric
+                        df[col] = converted
+                except Exception:
+                    # fallback: assign converted without strict astype
+                    df[col] = converted
+            else:
+                # keep as string (strip whitespace)
+                df[col] = col_series.astype(str).str.strip()
+
+        return df
     
     def data(self, var_name: str, dtype=float) -> np.ndarray:
         if var_name not in self.var_names:
@@ -122,10 +254,12 @@ class HoshiHistory(HOSHI_Reader):
 
 class HoshiProfile(HOSHI_Reader):
     def __init__(self, path: str, str_num: int):
-        if os.path.isdir(path):
-            self.path = os.path.join(path, 'writestr', f'str{str_num:05d}.txt')
-        elif os.path.isfile(path) and path.endswith(f'str{str_num:05d}.txt'):
+        if os.path.isfile(path) and path.endswith(f'str{str_num:05d}.txt'):
             self.path = path
+        elif path.endswith('writestr'):
+            self.path = os.path.join(path, f'str{str_num:05d}.txt')
+        elif os.path.isdir(path) and os.path.join(path, 'evol').exists():
+            self.path = os.path.join(path, 'writestr', f'str{str_num:05d}.txt')
         else:
             logging.error("Invalid path provided. Path should be either a directory or a profile file.")
             return
