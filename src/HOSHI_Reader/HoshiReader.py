@@ -56,7 +56,7 @@ def set_plot_ytickers(
     
     return None
 
-class HOSHI_Reader:
+class HoshiReader:
     def __init__(self, work_dir):
         self.work_dir = work_dir
         self.summary_dir = os.path.join(work_dir, 'summary')
@@ -72,7 +72,7 @@ class HOSHI_Reader:
             #os.makedirs(self.writestr_dir)
             logging.info('No writestr directory found')
         
-class HoshiHistory(HOSHI_Reader):
+class HoshiHistory(HoshiReader):
     var_names = []
     def __init__(self, path):
         if os.path.isdir(path):
@@ -252,7 +252,7 @@ class HoshiHistory(HOSHI_Reader):
         return df.iloc[:, 0].values
     
 
-class HoshiProfile(HOSHI_Reader):
+class HoshiProfile(HoshiReader):
     def __init__(self, path: str, str_num: int):
         if os.path.isfile(path) and path.endswith(f'str{str_num:05d}.txt'):
             self.path = path
