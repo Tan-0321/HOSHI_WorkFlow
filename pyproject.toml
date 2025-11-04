@@ -36,3 +36,19 @@ dev = [
     "pre-commit>=2.20",
     "coverage>=6.0",
 ]
+
+[tool.ruff]
+line-length = 88
+target-version = "py310"
+exclude = [
+    "simulations",
+    "simulations/**",
+    ".git",
+    "__pycache__",
+    "build",
+    "dist",
+    "**/*.pyc",
+    "**/*.ipynb",
+]
+# Avoid conflicts with black
+ignore = ["E203", "W503"]
