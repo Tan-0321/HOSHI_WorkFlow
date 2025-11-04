@@ -1,0 +1,79 @@
+plot \
+file u (@ix):(rsol*$3  ) w l ls 10 ti '',\
+file u (@ix):(rsol*$13 ) w l ls 10 ti '',\
+file u (@ix):(rsol*$23 ) w l ls 10 ti '',\
+file u (@ix):(rsol*$33 ) w l ls 10 ti '',\
+file u (@ix):(rsol*$43 ) w l ls 10 ti '',\
+file u (@ix):(rsol*$53 ) w l ls 10 ti '',\
+file u (@ix):(rsol*$63 ) w l ls 10 ti '',\
+file u (@ix):(rsol*$73 ) w l ls 10 ti '',\
+file u (@ix):(rsol*$83 ) w l ls 10 ti '',\
+file u (@ix):(rsol*$93 ) w l ls 10 ti '',\
+file u (@ix):(rsol*$103) w l ls 11 ti '',\
+file u (@ix):(rsol*$113) w l ls 10 ti '',\
+file u (@ix):(rsol*$123) w l ls 10 ti '',\
+file u (@ix):(rsol*$133) w l ls 10 ti '',\
+file u (@ix):(rsol*$143) w l ls 10 ti '',\
+file u (@ix):(rsol*$148) w l ls 10 ti '',\
+file u (@ix):(rsol*$153) w l ls 11 ti '',\
+\
+file u (@ix):(rsol*$154) w l ls 10 ti '',\
+file u (@ix):(rsol*$155) w l ls 10 ti '',\
+file u (@ix):(rsol*$156) w l ls 10 ti '',\
+file u (@ix):(rsol*$157) w l ls 10 ti '',\
+file u (@ix):(rsol*$158) w l ls 10 ti '',\
+file u (@ix):(rsol*$159) w l ls 10 ti '',\
+file u (@ix):(rsol*$160) w l ls 10 ti '',\
+file u (@ix):(rsol*$161) w l ls 10 ti '',\
+file u (@ix):(rsol*$162) w l ls 10 ti '',\
+file u (@ix):(rsol*$163) w l ls 11 ti '',\
+\
+file u (@ix):(rsol*$164) w l ls 10 ti '',\
+file u (@ix):(rsol*$165) w l ls 10 ti '',\
+file u (@ix):(rsol*$166) w l ls 10 ti '',\
+file u (@ix):(rsol*$167) w l ls 10 ti '',\
+file u (@ix):(rsol*$168) w l ls 10 ti '',\
+file u (@ix):(rsol*$169) w l ls 10 ti '',\
+file u (@ix):(rsol*$170) w l ls 10 ti '',\
+file u (@ix):(rsol*$171) w l ls 10 ti '',\
+file u (@ix):(rsol*$172) w l ls 10 ti '',\
+file u (@ix):(rsol*$173) w l ls 11 ti '',\
+\
+file u (@ix):(rsol*$174) w l ls 10 ti '',\
+file u (@ix):(rsol*$175) w l ls 10 ti '',\
+file u (@ix):(rsol*$176) w l ls 10 ti '',\
+file u (@ix):(rsol*$177) w l ls 10 ti '',\
+file u (@ix):(rsol*$178) w l ls 10 ti '',\
+file u (@ix):(rsol*$179) w l ls 10 ti '',\
+file u (@ix):(rsol*$180) w l ls 10 ti '',\
+file u (@ix):(rsol*$181) w l ls 10 ti '',\
+file u (@ix):(rsol*$182) w l ls 10 ti '',\
+file u (@ix):(rsol*$183) w l ls 11 ti '',\
+\
+file u (@ix):(rsol*$184) w l ls 10 ti '',\
+file u (@ix):(rsol*$185) w l ls 10 ti '',\
+file u (@ix):(rsol*$186) w l ls 10 ti '',\
+file u (@ix):(rsol*$187) w l ls 10 ti '',\
+file u (@ix):(rsol*$188) w l ls 10 ti '',\
+file u (@ix):(rsol*$189) w l ls 10 ti '',\
+file u (@ix):(rsol*$190) w l ls 10 ti '',\
+file u (@ix):(rsol*$191) w l ls 10 ti '',\
+file u (@ix):(rsol*$192) w l ls 10 ti '',\
+file u (@ix):(rsol*$193) w l ls 11 ti '',\
+\
+file u (@ix):(rsol*$194) w l ls 10 ti '',\
+file u (@ix):(rsol*$195) w l ls 10 ti '',\
+file u (@ix):(rsol*$196) w l ls 10 ti '',\
+file u (@ix):(rsol*$197) w l ls 10 ti '',\
+file u (@ix):(rsol*$198) w l ls 10 ti '',\
+file u (@ix):(rsol*$199) w l ls 10 ti '',\
+file u (@ix):(rsol*$200) w l ls 10 ti '',\
+file u (@ix):(rsol*$201) w l ls 10 ti '',\
+file u (@ix):(rsol*$202) w l ls 10 ti '',\
+file u (@ix):(rsol*$203) w l ls 11 ti '',\
+\
+file u (@ix):(rsol*$213) w l ls 10 ti '',\
+file u (@ix):(rsol*$223) w l ls 10 ti '',\
+file u (@ix):(rsol*$233) w l ls 10 ti '',\
+file u (@ix):(rsol*$243) w l ls 10 ti '',\
+file u (@ix):(rsol*$253) w l ls 11 ti ''

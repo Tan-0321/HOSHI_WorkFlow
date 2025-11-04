@@ -1,0 +1,13 @@
+# for initial distribution modification
+4
+  1		iinit_modif ; modified with 1: thermal bomb, 2: light bulb
+  0		sw_bomb     ; 1: energy is added. 0:center is stopped.
+  5		dj_bomb     ; width of the artificially heated region
+  1		sw_bulb	    ; 1: energy is added.
+5
+  1.5d51	efin_bomb   ; the total additional energy
+  1d-3		tau_bomb    ; the timescale of e-addition
+  1.2d0		mr_bomb
+  0d52		lnu_bulb
+  4d0		tnu_bulb
+  1d3		tau_bulb

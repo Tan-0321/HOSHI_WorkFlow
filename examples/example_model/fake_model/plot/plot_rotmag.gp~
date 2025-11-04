@@ -1,0 +1,27 @@
+set xl 'log B_{rad}'
+set yl 'log P_{rot}'
+set xr [*:*]
+set yr [*:*]
+
+plot \
+file_summary           u (log10(filt(@i_ievo,0,@i_Bsrf))):(log10(Prot(@i_Rsrf,@i_vrot))) w l ls 11 ti '',\
+file_summary eve dnstg u (log10(filt(@i_ievo,0,@i_Bsrf))):(log10(Prot(@i_Rsrf,@i_vrot))) w p ls 11 ti '',\
+file_summary           u (log10(filt(@i_ievo,1,@i_Bsrf))):(log10(Prot(@i_Rsrf,@i_vrot))) w l ls  1 ti '',\
+file_summary eve dnstg u (log10(filt(@i_ievo,1,@i_Bsrf))):(log10(Prot(@i_Rsrf,@i_vrot))) w p ls  1 ti '',\
+file_summary           u (log10(filt(@i_ievo,2,@i_Bsrf))):(log10(Prot(@i_Rsrf,@i_vrot))) w l ls  2 ti '',\
+file_summary eve dnstg u (log10(filt(@i_ievo,2,@i_Bsrf))):(log10(Prot(@i_Rsrf,@i_vrot))) w p ls  2 ti '',\
+file_summary           u (log10(filt(@i_ievo,3,@i_Bsrf))):(log10(Prot(@i_Rsrf,@i_vrot))) w l ls  3 ti '',\
+file_summary eve dnstg u (log10(filt(@i_ievo,3,@i_Bsrf))):(log10(Prot(@i_Rsrf,@i_vrot))) w p ls  3 ti '',\
+file_summary           u (log10(filt(@i_ievo,4,@i_Bsrf))):(log10(Prot(@i_Rsrf,@i_vrot))) w l ls  4 ti '',\
+file_summary eve dnstg u (log10(filt(@i_ievo,4,@i_Bsrf))):(log10(Prot(@i_Rsrf,@i_vrot))) w p ls  4 ti '',\
+file_summary           u (log10(filt(@i_ievo,5,@i_Bsrf))):(log10(Prot(@i_Rsrf,@i_vrot))) w l ls  5 ti '',\
+file_summary eve dnstg u (log10(filt(@i_ievo,5,@i_Bsrf))):(log10(Prot(@i_Rsrf,@i_vrot))) w p ls  5 ti '',\
+file_summary           u (log10(filt(@i_ievo,6,@i_Bsrf))):(log10(Prot(@i_Rsrf,@i_vrot))) w l ls  6 ti '',\
+file_summary eve dnstg u (log10(filt(@i_ievo,6,@i_Bsrf))):(log10(Prot(@i_Rsrf,@i_vrot))) w p ls  6 ti '',\
+file_summary           u (log10(filt(@i_ievo,7,@i_Bsrf))):(log10(Prot(@i_Rsrf,@i_vrot))) w l ls  7 ti '',\
+file_summary eve dnstg u (log10(filt(@i_ievo,7,@i_Bsrf))):(log10(Prot(@i_Rsrf,@i_vrot))) w p ls  7 ti '',\
+file_summary           u (log10(filt(@i_ievo,8,@i_Bsrf))):(log10(Prot(@i_Rsrf,@i_vrot))) w l ls  8 ti '',\
+file_summary eve dnstg u (log10(filt(@i_ievo,8,@i_Bsrf))):(log10(Prot(@i_Rsrf,@i_vrot))) w p ls  8 ti ''
+
+unset xr
+set xr [*:*]

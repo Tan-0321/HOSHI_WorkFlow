@@ -1,0 +1,14 @@
+import sys
+import numpy as np
+
+args = sys.argv
+
+time_rec = float(args[1])
+file_summary = '../summary/summary.txt'
+
+data_summary = np.loadtxt(file_summary)
+nstg0        = int( data_summary[0,0]-1 )
+nstg_rec     = np.argmin( abs(data_summary[:,4]-time_rec) ) + nstg0
+nstg_rec     = int(nstg_rec/100+1) * 100
+
+print (str(nstg_rec).zfill(5))

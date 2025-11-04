@@ -1,0 +1,29 @@
+res
+
+set term pdf size 5,8
+set outp 'stream.pdf'
+
+file='../summary/stream.txt'
+
+set style line 10 lw 0.2 lc rgb 'gray'
+set style line 11 lw 0.6 lc rgb 'black'
+
+
+
+
+set yl 'radius [km]'
+set log y
+
+set multiplot layout 2,1
+
+unit = 6.96e5 	     # in km
+ix = '$2'
+set xr [1e-3:]
+set xl 'time [s]'
+#set xr [:0.25]
+
+set log x
+load 'plot_stream_lines.gp'
+
+unset log x
+load 'plot_stream_lines.gp'

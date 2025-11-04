@@ -1,0 +1,108 @@
+import sys
+import numpy as np
+
+args = sys.argv
+
+E_exp     = float(args[1])
+t_bomb    = float(args[2])
+nstg      = int(args[3])
+file_str  = '../writestr/str'+args[3]+'.txt'
+file_cx   = '../cxdata/cxdat'+args[3]+'.txt'
+
+mesh_tot   = 1024
+nctl       = 49
+ye_masscut = 0.48
+
+line_nctl = int(nctl/3)+1
+line_tot  = line_nctl*3 + 1
+
+data_str = np.loadtxt(file_str)
+with open(file_cx, 'r') as f:
+    cx_line = f.readlines()
+
+# mass resolution
+dmass = []
+for jmesh in range(1,mesh_tot+1):
+    dmass.append( data_str[jmesh-1,7] )
+dmass = np.array(dmass)
+#print(dmass)
+
+###
+for jmesh in range(1,mesh_tot+1):
+    ye_mesh = data_str[jmesh-1,19]
+    if( ye_mesh > ye_masscut ):
+        masscut = data_str[jmesh-1,6]
+        break
+
+#print(ye_mesh)
+#print(ye_masscut)
+#print(masscut)
+###
+
+i_masscut = np.argmin( abs(data_str[:,6]-masscut) )
+mass_trial = data_str[i_masscut,6]
+if( mass_trial > masscut ):
+    i_masscut  = i_masscut-1
+    mass_trial = data_str[i_masscut,6]
+mass_rem = mass_trial
+mass_tot = data_str[mesh_tot-1,6]
+mass_eje = mass_tot - mass_rem
+
+# concentration.
+# firstly 1-mesh concentrations are made as an array [concent].
+concent = []
+for jmesh in range(1,mesh_tot+1):
+
+    line_base = (jmesh-1)*line_tot
+    subline1  = cx_line[line_base+ 1:line_base+ 2]
+    subline2  = cx_line[line_base+ 2:line_base+19]
+    subline3  = cx_line[line_base+19:line_base+36]
+    subline4  = cx_line[line_base+36:line_base+53]
+
+    concent_mesh = []
+    for elem_list in subline2:
+        elem_list = elem_list.rstrip('\n').split()
+        for elem in elem_list:
+            concent_mesh.append( float(elem) )
+
+    concent_mesh = np.array(concent_mesh)
+    concent.append( concent_mesh )
+
+# secondly full-elemtent concent. dist. are made as an array [concent_all],
+# which is made of 1-element conc. dist. [concent_elem].
+concent_all = []
+for k in range(0,nctl):
+    concent_elem = []
+    for jmesh in range(1,mesh_tot+1):
+        concent_elem.append( concent[jmesh-1][k] )
+
+    concent_elem = np.array(concent_elem)
+#    print(concent_elem)
+    concent_all.append(concent_elem)
+
+#dot product
+print ('%14.5e'%E_exp , end='')
+print ('%14.5e'%t_bomb, end='')
+print ('%7i'   %nstg  , end='')
+
+prod = []
+for k in range(0,nctl):
+    prod.append( np.dot(dmass[i_masscut+1:],concent_all[k][i_masscut+1:]) )
+prod     = np.array(prod)
+
+for k in range(0,nctl):
+    print ('%14.5e'%prod[k], end='')
+
+print()
+
+#mass_sum = np.sum( prod )
+#print(mass_sum)
+#print(mass_eje)
+#print(mass_rem)
+#print(mass_tot)
+
+# formatted output
+#line = "Production: {}, {}, {}"
+#print(line.format(prod[0:2]))
+#prod_list=' '.join(map(str,prod))
+#print(prod_list)

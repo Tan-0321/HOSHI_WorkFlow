@@ -1,0 +1,80 @@
+import sys
+
+import numpy as np
+
+
+class Structure:
+    def __init__(self,ndir,nstg):
+        fstr  = str(nstg).zfill(5)
+        fname = ndir+'str'+fstr+'.txt'
+        self.fname = fname
+        return
+
+    def get_ndiv(self):
+        return self.ndiv
+
+    def get_icv(self,j):
+        return self.icv[j-1]
+
+    def get_mass(self,j):
+        return self.mass[j-1]
+
+    def get_rad(self,j):
+        return self.rad[j-1]
+
+    def get_temp(self,j):
+        return self.temp[j-1]
+
+    def get_entropy(self,j):
+        return self.entr[j-1]
+
+    def get_epn(self,j):
+        return self.epn[j-1]
+
+    def read_file(self):
+        # define quantities
+        self.ndiv = 0
+        self.icv  = []
+        self.mass = []
+        self.rad  = []
+        self.temp = []
+        self.entr = []
+        self.epn  = []
+
+        # read data
+        with open(self.fname,'r') as f:
+            line_all = f.readlines()
+
+        line0 = line_all[0].split()
+        ndiv  = int(line0[4])
+
+        for l in range(1,ndiv+1):
+            j    = l + 2
+            line = line_all[j].split()
+            icv  = int  (line[ 2-1])
+            mass = float(line[ 4-1])
+            rad  = float(line[ 7-1]) / 6.96e10
+            pres = float(line[10-1])
+            dens = float(line[11-1])
+            temp = np.log10(float(line[12-1]))
+            entr = float(line[13-1])
+            Yi   = float(line[17-1])
+            epn  = np.log10(float(line[32-1]))
+            epnu = float(line[33-1])
+
+            icv = 1 * (icv==1) # filter function
+
+            self.icv  .append(icv)
+            self.mass .append(mass)
+            self.rad  .append(rad)
+#            self.color.append(1./Yi)
+            self.temp .append(temp)
+            self.entr .append(entr)
+            self.epn  .append(epn)
+
+        self.ndiv = ndiv
+        return
+
+    def output(self):
+        print('str data: %s' % self.fname)
+        return

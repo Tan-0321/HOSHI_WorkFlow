@@ -1,0 +1,24 @@
+ strdata
+ summary
+ * * *
+ m25d0_3e-1
+ m25d0_3e-1
+ * * *
+ 6500			: NAME_IN
+ 6573			: NAME_OUT = NBEGIN
+ 20000			: NSTG_max
+ 1d10	2		: MAXQTY, 1:tmp, 2:den, 3:Xp, 4:Xa, 5:XC, 6:XO
+ 1			: 1-change composition, 2-change only xhydro & xhevel
+ 0.7465	4.23e-3		: new XHYDRO, XHEVEL
+ 0	 		: 1-change mass
+ 25.0d0			: new total mass
+
+ * * * X = 0.7154 Z = 1.41e-2   * * *  ! Zsol
+ * * * X = 0.7441 Z = 5.00e-3   * * *  ! Zlmc ~ 1/3
+ * * * X = 0.7465 Z = 4.23e-3   * * *  ! 3/10
+ * * * X = 0.7554 Z = 1.41e-3   * * *  ! 1/10
+ * * * X = 0.7585 Z = 4.23e-4   * * *  ! 3/100
+ * * * X = 0.7594 Z = 1.41e-4   * * *  ! 1/100
+ * * * X = 0.7598 Z = 1.41e-5   * * *  ! 1/1000
+ * * * X = 0.7599 Z = 1.41e-6   * * *  ! 1/10000
+ * * * X = 0.7599 Z = 0.00e-2   * * *  ! 0d0

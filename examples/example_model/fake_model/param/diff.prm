@@ -1,0 +1,28 @@
+# for diffusion coefficients
+11
+  10		nrtrb   ; iturb is fixed after nitr > nrtrb.
+  0		iturb_es; switch for ES circulation
+  0		iturb_ss; switch for SS inst.
+  0		iturb_gs; switch for GSF inst.
+  0		iturb_ds; switch for DS inst.
+  1		iovc_H
+  0		iove_H
+  1		iovc_He
+  0		iove_He
+  1		iovc_C
+  0		iove_C
+14
+  1.d0		sw_visc        ; applied visc. w. r. to conv. diffusivity.
+  0.00d0	f_diff_to_visc ; chem. diff./visc. for additional diffs.
+  0.00d0        f_dmag_to_visc ; mag.  diff./visc. for additional diffs.
+  1.d-1		f_mu_reduction
+  0d0		n_cv_in        ; dlnomega/dlnr in convective regions
+  1d-9		dlim_l	       ; lower limit for diff. in unit of Dthm
+  1d10		dlim_u	       ; upper limit for diff. in unit of drad2/dtime
+  0.01d0	fovc_H 
+  0.01d0	fove_H 
+  0.01d0	fovc_He
+  0.01d0	fove_He
+  0.01d0	fovc_C
+  0.01d0	fove_C
+  0d0		iturb_PT; switch for Pitts-Tayler inst.

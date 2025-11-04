@@ -1,0 +1,136 @@
+      program reduct
+      implicit none
+      integer :: i,j,k,l,m,n
+      integer :: fnumber, istat
+      character(100) :: fname1, fname2, fname3, fname4, fname5
+      character(100) :: command1, command2, command3, command4, command5
+
+      integer :: idum(100)
+      real(8) :: dum(1000), dum1(1000),dum2(1000),dum3(1000)
+      integer :: istop
+      integer :: nstg, nstg5, nstg50
+      real(8) :: tc, xxc, xyc
+
+      integer :: ndiv,nctl=153
+      real(8) :: m_co, m_he, m_tot
+      real(8) :: mr, dmr, xx, xy, xc, xo, tc_rec0
+      real(8) :: cxl(1000), mass(1000)
+      real(8) :: tc_rec
+
+      open(unit=10,file="reduct.in",status="old")
+      read(10,*)
+      read(10,*)fnumber
+      read(10,*)
+      read(10,*)tc_rec
+      read(10,*)
+      open(unit=20,file="reduct.log",status="unknown")
+      write(20,'(a10,30a15)')'# file', 'log Tc', 'Mtot'
+     &     , 'Mcore_He', 'Mcore_He/Mtot'
+     &     , 'Mcore_CO', 'Mcore_CO/Mtot', 'Mshell_He'
+     &     , 'M_N', 'M_N/Mtot'
+
+      do i = 1,fnumber
+         read(10,'(a)')fname1
+         fname1 = adjustl(fname1)
+         fname2 = trim(fname1)//"/summary/summary2.txt"
+         open(unit=11,file=fname2,status="old")
+         read(11,*)
+         read(11,*)
+
+         istop = 0
+         do while( istop==0 )
+
+            read(11,*)idum(1:2),dum(3:57)
+            nstg = idum(1)
+            tc   = dum(10)
+            xxc  = 10.**dum(13)
+            xyc  = 10.**dum(14)
+
+            if( tc>tc_rec )then
+
+               fname3= trim(fname1)//'_str.txt'
+               nstg50= nstg/50*50
+               write(fname4,'(a,"/writestr/str",i5.5,".txt")')
+     &              trim(fname1),nstg50
+               open(unit=14,file=fname4,status="old")
+               command1 = 'cp '//trim(fname4)//' '//trim(fname3)
+               call system( command1 )
+
+               fname3= trim(fname1)//'_cx.txt'
+               write(fname5,'(a,"/cxdata/cxdat",i5.5,".txt")')
+     &              trim(fname1),nstg50
+               open(unit=15,file=fname5,status="old")
+               command1 = 'cp '//trim(fname5)//' '//trim(fname3)
+               call system( command1 )
+
+               read(14,*)
+               read(14,*)
+               read(14,'(20x,i5)')ndiv
+               read(15,*)
+
+               m_co  = 0d0
+               m_he  = 0d0
+               m_tot = 0d0
+               mass(:)=0d0
+               do j=1,ndiv
+                  read(14,*)idum(1:2),dum(3:81)
+                  mr = dum(3)
+                  dmr= dum(4)
+                  xx = dum(18)
+                  xy = dum(19)
+                  xc = dum(20)
+                  xo = dum(21)
+                  if(j==1)tc_rec0 = dum(10)
+
+                  if( m_co==0d0.and.xy>xc+xo )m_co  = mr
+                  if( m_he==0d0.and.xx>1d-1  )m_he  = mr
+                  if( j==ndiv )m_tot = mr
+                  read(15,*)
+                  read(15,*)dum1(1:nctl)
+                  read(15,*)dum2(1:nctl)
+                  read(15,*)dum3(1:nctl)
+                  cxl(1:nctl)  = dum1(1:nctl)
+                  mass(1:nctl) = mass(1:nctl) + cxl(1:nctl)*dmr
+               enddo
+               close(14)
+               close(15)
+               write(20,'(a10,1p30e15.6)')trim(fname1),tc_rec0
+     &              ,m_tot,m_he,m_he/m_tot,m_co,m_co/m_tot,m_he-m_co
+     &              ,mass(17),mass(17)/m_tot
+
+
+c               nstg5 = nstg/5*5
+c               write(fname4,'("../",a,"/writestr/str",i5.5,".txt")')
+c     &              trim(fname1),nstg5
+c               open(unit=12,file=fname4,status="old")
+c               read(12,*)
+c               read(12,*)
+c               read(12,'(20x,i5)')ndiv
+c               m_co  = 0d0
+c               m_he  = 0d0
+c               m_tot = 0d0
+c               do j=1,ndiv
+c                  read(12,*)idum(1:2),dum(3:81)
+c                  mr = dum(3)
+c                  xx = dum(18)
+c                  xy = dum(19)
+c                  xc = dum(20)
+c                  xo = dum(21)
+c                  if( m_co==0d0.and.xy>xc+xo )m_co  = mr
+c                  if( m_he==0d0.and.xx>1d-1  )m_he  = mr
+c                  if( j==ndiv )m_tot = mr
+c               enddo
+c               write(*,'(a10,1p30e15.6)')trim(fname1)
+c     &              ,m_tot,m_he,m_he/m_tot,m_co,m_co/m_tot
+c     &              ,mass(2),mass(6),mass(14),mass(17),mass(21)
+c               close(12)
+            endif
+
+            if( tc>tc_rec )istop = 1
+         enddo
+         close(11)
+
+      enddo
+      close(10)
+
+      end

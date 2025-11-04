@@ -1,0 +1,80 @@
+import math
+import sys
+
+import matplotlib.pyplot as plt
+import numpy as np
+import plot_khd as pl_khd
+import read_accretion as ra
+import read_summary as rs
+import read_writestr as rw
+
+# plot settings
+plt.switch_backend('agg')
+fplot = '../plot/khd.pdf'
+fig   = plt.figure()
+
+T_switch = 2.7e7
+
+iyplot = 1
+ylabel = 'lg[ Radius [R$_\odot$] ]'
+ymin   =-2.5
+ymax   = 2.0
+
+icplot = 2
+clabel = 'lg[ energy gen. rate [erg g$^{-1}$ s$^{-1}$] ]'
+cmin   = 1.0
+cmax   = 6.0
+cstep  = 0.5
+
+
+ixplot = 2
+xlabel = 'lg[ time from start [year] ]'
+xmin   = 3.9
+xmax   = 12.
+
+
+x_lend    = 0.10
+x_rend    = 0.95
+x_ratio_1 = 0.42
+
+x_ratio_2 = 1. - x_ratio_1
+x_width   = x_rend-x_lend
+
+x_orig_1  = x_lend
+x_orig_2  = x_lend + x_width*x_ratio_1
+x_width_1 = x_width * x_ratio_1 #* 0.98
+x_width_2 = x_width * x_ratio_2 #* 0.98
+
+fig_coord= [x_orig_1,0.10,x_width_1,0.87]
+pl_khd.plot_khd(fplot,fig,fig_coord \
+                ,1,T_switch \
+                ,ixplot,xlabel,xmin,xmax \
+                ,iyplot,ylabel,ymin,ymax \
+                ,icplot,clabel,cmin,cmax,cstep \
+                )
+
+ixplot = 3
+xlabel = 'lg[ time till end [year] ]'
+xmin   = 12.
+xmax   = 6.
+
+fig_coord= [x_orig_2,0.10,x_width_2,0.87]
+pl_khd.plot_khd(fplot,fig,fig_coord \
+                ,2,T_switch \
+                ,ixplot,xlabel,xmin,xmax \
+                ,iyplot,ylabel,ymin,ymax \
+                ,icplot,clabel,cmin,cmax,cstep \
+                )
+
+plt.savefig(fplot)
+
+
+
+# lg entropy
+#icplot = 1
+#clabel= 'lg[ entropy [kb baryon$^{-1}$] -18. ]'
+#cmin =-0.2
+#cmax = 2.
+#cstep= 0.1
+# epn
+

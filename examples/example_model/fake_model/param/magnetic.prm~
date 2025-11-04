@@ -1,0 +1,10 @@
+# for magnetic calculation
+2
+  0		: iconf
+  0		: ibreak
+5
+  0d0		: sw_mxw
+  0d0		: sw_omg
+  1d0		: sw_dmag
+  0d0		: falp_A
+  0d0		: sw_omgB

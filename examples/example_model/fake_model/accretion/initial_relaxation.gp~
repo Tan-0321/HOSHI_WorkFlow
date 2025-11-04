@@ -1,0 +1,112 @@
+res
+
+set term pdf size 6,5
+set outp "initial_relaxation.pdf
+
+file_acc = "../summary/accretion.txt"
+file_dtime = "../summary/dtime.txt"
+file = "../summary/summary.txt"
+
+year = 3.15e7
+Myear= year * 1e6
+Lsun = 3.828e33
+Msun = 1.99e33
+
+set multiplot layout 2,1
+#
+set lmargin 0
+set rmargin 0
+set tmargin 0
+set bmargin 0
+xorig = 0.1
+yorig = 0.1
+xsize =(1./2.)-xorig
+ysize =(1.-yorig)/4.
+#
+set key r b
+
+set log x
+set log y
+
+#set xl "mass [Msun]
+set xl "time [yr]
+set format x
+set yl "luminosity [Lsun]
+set yr [1e-1:*]
+set format y "10^{%T}"
+set size xsize*0.9,ysize*0.9
+set orig xorig,yorig+ysize*0
+plot \
+file_acc u ($9):27     w l ti "Lsacc",\
+file_acc u ($9):25     w l ti "Lacc",\
+file_acc u ($9):26     w l ti "Lstar"
+
+#,\
+#file u ($5):($28/Lsun) w l ti "Lnuc",\
+#file u ($5):($29/Lsun) w l ti "Lneu"
+
+set xl ""
+set format x ""
+set yl "radius [Rsun]
+set yr [*:*]
+set format y "10^{%T}"
+set size xsize*0.9,ysize*0.9
+set orig xorig,yorig+ysize*1
+plot \
+file_acc u ($9):23 w l ti "r_{star}",\
+file_acc u ($9):22 w l ti "r_{disk}"
+
+set xl ""
+set format x ""
+set yl "mass [Msun]
+set yr [*:*]
+set format y "10^{%T}"
+set size xsize*0.9,ysize*0.9
+set orig xorig,yorig+ysize*2
+plot \
+file_acc u ($9):10                w l ti "m_{star}",\
+file_acc u ($9):($10+$11)         w l ti "+m_{disk}",\
+file_acc u ($9):($10+$11+$14)     w l ti "+m_{lost}",\
+file_acc u ($9):($10+$11+$14+$13) w l ti "+m_{env}"
+
+set xl ""
+set format x ""
+set yl "mdot [Msun yr^{-1}]
+set yr [1e-7:*]
+set format y "10^{%T}"
+set size xsize*0.9,ysize*0.9
+set orig xorig,yorig+ysize*3
+plot \
+file_acc u ($9):16          w l ti "dms/dt",\
+file_acc u ($9):17          w l ti "dmd/dt",\
+file_acc u ($9):18          w l ti "mdot_{coll}",\
+file_acc u ($9):19          w l ti "mdot_{dwind}",\
+file_acc u ($9):20          w l ti "mdot_{swind}",\
+file_acc u ($9):21          w l ti "mdot_{acc}"
+
+
+
+
+#set xl "mass [Msun]
+set xl "time [yr]
+set format x
+set yl "1-mu"
+set yr [1e-5:1.5]
+set format y "10^{%T}"
+set size xsize*0.9,ysize*0.9
+set orig 0.5+xorig,yorig+ysize*0
+plot \
+file_acc u ($9):15          w l ti "1-mu_{open}"
+
+set xl ""
+set format x ""
+set yl "Mom [Msun km s^{-1}]
+set yr [1e-1:*]
+set format y "10^{%T}"
+set size xsize*0.9,ysize*0.9
+set orig 0.5+xorig,yorig+ysize*1
+plot \
+file_acc u ($9):($27/Msun/1e5)   w l ti "P_{collapse}",\
+file_acc u ($9):($28/Msun/1e5)   w l ti "P_{rad}",\
+file_acc u ($9):($29/Msun/1e5)   w l ti "P_{dwind}"
+

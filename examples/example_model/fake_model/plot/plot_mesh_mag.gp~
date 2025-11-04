@@ -1,0 +1,23 @@
+
+set xl  'mass'
+set yl  'lg B_{rad}'
+set y2l 'lg B_{phi}'
+set ytics nomirror
+set y2tics
+set yr  [-6:7]
+set y2r [-6:7]
+plot \
+file_w1                 u ($1):(log10(Beq( @i_vcv ,@i_dens))) w l ls  3 ax x1y2 ti 'B_{cv}',\
+file_w1                 u ($1):(log10(Beq( @i_vrot,@i_dens))) w l ls  4 ax x1y2 ti 'B_{rot}',\
+file_w1                 u ($1):(log10(Beq(-@i_vrot,@i_dens))) w l ls 14 ax x1y2 ti '',\
+file_w1                 u ($1):(log10( @i_Brad)) w l ls  1         ti 'B_{rad}',\
+file_w1                 u ($1):(log10( @i_Bphi)) w l ls  2 ax x1y2 ti 'B_{phi}',\
+file_w1                 u ($1):(log10(-@i_Brad)) w l ls 11         ti '',\
+file_w1                 u ($1):(log10(-@i_Bphi)) w l ls 12 ax x1y2 ti '',\
+file_w1  eve dj::(dj-1) u ($1):(log10( @i_Brad)) w p ls  1         ti '',\
+file_w1  eve dj::(dj-1) u ($1):(log10( @i_Bphi)) w p ls  2 ax x1y2 ti '',\
+file_w1  eve dj::(dj-1) u ($1):(log10(-@i_Brad)) w p ls 11         ti '',\
+file_w1  eve dj::(dj-1) u ($1):(log10(-@i_Bphi)) w p ls 12 ax x1y2 ti ''
+
+unset y2l
+unset y2tics

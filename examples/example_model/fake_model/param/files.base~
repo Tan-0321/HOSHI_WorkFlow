@@ -1,0 +1,14 @@
+ strdata
+ summary
+ * * *
+ m2e8_z1e0
+ m2e9_z1e0
+ * * *
+ e			: NAME_IN
+ e			: NAME_OUT = NBEGIN
+ 10000			: NSTG_max
+ 1d8	1		: MAXQTY, 0:time 1:tmp 2:den 3:Xp 4:Xa 5:XC 6:XO
+ 1			: 1-change composition, 2-change only xhydro & xhevel
+ 1d0			: new relative metallicity
+ 1	 		: 1-change mass
+ 2.9			: new total mass

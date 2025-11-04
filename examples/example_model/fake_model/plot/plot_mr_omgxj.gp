@@ -1,0 +1,30 @@
+
+set xl  'mass'
+if( imass_range==1 ){
+    set xr [@mass_min:@mass_max]
+}
+set yl  'lg omg'
+set y2l 'lg xj'
+set ytics nomirror
+set y2tics
+set yr  [*:*]
+set y2r [*:*]
+dj = 2**4
+
+jnrm = 1.  # 1.5365022992585081E+14
+jisco(x) = 2*(6.67e-8*2e33/3e10) * x
+
+plot \
+file_w1  u (@i_mr):(log_pos(@i_omg))                w l ls 1         ti 'omg',\
+file_w1  u (@i_mr):(log_pos(@i_xj*jnrm))           w l ls 2 ax x1y2 ti 'xj',\
+file_w1  eve dj::(dj-1) u (@i_mr):(log_pos(@i_omg)) w p ls 1         ti '',\
+file_w1  eve dj::(dj-1) u (@i_mr):(log_pos(@i_xj*jnrm)) w p ls 2 ax x1y2 ti '',\
+file_w1  u (@i_mr):(log_neg(@i_omg))                w l ls 11         ti '',\
+file_w1  u (@i_mr):(log_neg(@i_xj*jnrm))           w l ls 12 ax x1y2 ti '',\
+file_w1  eve dj::(dj-1) u (@i_mr):(log_neg(@i_omg)) w p ls 11         ti '',\
+file_w1  eve dj::(dj-1) u (@i_mr):(log_neg(@i_xj*jnrm)) w p ls 12 ax x1y2 ti '',\
+log10(jisco(x))     w l ls 10 ax x1y2 ti 'j_{isco}',\
+log10(jisco(x)/3)   w l ls 10 ax x1y2 ti ''
+
+unset y2l
+unset y2tics

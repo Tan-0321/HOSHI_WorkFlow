@@ -1,0 +1,26 @@
+# input settings
+18
+ 100		dnstg_res
+ 10		dnstg_str
+ 1		isplt     ; split reaction-diffusion equation
+ 0		iinit 	  ; 1:initialize rotation & magnetism (init. also happens if nstg=0)
+ 1		ixmlos	  ; 1:with mass-loss, 0:w.o. mass-loss
+ 1		ixreac
+ 1		ixdiff
+ 1		ixconv
+ 1		ixepn
+ 1		ixepnu
+ 0		ixepadd
+ 1		ixbound		| 1: stellar surface. 
+ 1		ixecons_lumi
+ 0		ixecons_visc
+ 1		ixjcons_torq
+ 0		ixhydro_acc
+ 0		ixhydro_visc
+ 10		nrcv      ; conv. lum. condition is checked for nitr <= nrcv. 
+5
+ 0.666667d0	taus     ; surface optical depth
+ 1.5d0		cmixl    ; MLT parameter
+ 0.d0		fomg_ini ; initial omega/omega_Kep value, previous 2.d-1
+ 0.d0		Brad_ini ; initial Brad in G, previous 3.d3
+ 0.d0		Bphi_ini ; initial Btor in G

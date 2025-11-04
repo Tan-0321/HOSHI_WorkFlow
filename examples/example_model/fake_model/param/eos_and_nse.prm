@@ -1,0 +1,14 @@
+# for EOS & NSE control
+7
+   1		inc_ion     ; 1:include, 0:exclude
+   1		inc_rad     ; 1:include, 0:exclude
+   1		inc_nuc     ; 1:include, 0:exclude
+   1		inc_ele     ; 1:include, 0:exclude
+   1		inc_clm     ; 1:include, 0:exclude
+   1		inc_nse     ; 1:include, 0:exclude
+   0		inc_restmass; 1:include, 0:exclude
+4
+   5d9		tnse_eos    ; NSE EOS is used                  if T>tnse_eos.
+   5d9		tnse_entropy; entropy equation is used         if T>tnse_entropy.
+   8d9		tnse_comp   ; composition is determined by NSE if T>tnse_comp.
+   0d0		cxnse_comp  ; composition is determined by NSE if X(Si)>cxnse_comp.

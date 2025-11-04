@@ -1,0 +1,15 @@
+# for timestep control
+3
+  0	: itest
+  0	: istart
+  50    : kdif_dsstr
+9
+  1.d3	: dtime_test
+  1.d10	: dtime_in
+  3.d-2	: dstgt
+  3.d-1	: ftmin
+  1.3d0	: ftmax
+  0.d-5	: fthmn
+  1.d5	: fthmx
+  0.5d0	: fenv_dsstr
+  0.3d0 : fdif_dsstr

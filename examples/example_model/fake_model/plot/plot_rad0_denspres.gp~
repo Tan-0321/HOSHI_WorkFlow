@@ -1,0 +1,42 @@
+
+set xl  'rad /rad_sh'
+set yl  'normalized quantities'
+set ytics nomirror
+set yr [-0.1:4.2]
+set xr [-0.1:1.2]
+set key l t
+plot \
+file_d1                 u (@j_rad0):(@j_dens0) w l ls 1 ti 'dens/dens_{sh}',\
+file_d1                 u (@j_rad0):(@j_pres0) w l ls 2 ti 'pres/pres_{sh}',\
+file_d1                 u (@j_rad0):(@j_vel 0) w l ls 3 ti 'vel /vel_{sh',\
+file_d1  eve dj::(dj-1) u (@j_rad0):(@j_dens0) w p ls 1 ti '',\
+file_d1  eve dj::(dj-1) u (@j_rad0):(@j_pres0) w p ls 2 ti '',\
+file_d1  eve dj::(dj-1) u (@j_rad0):(@j_vel 0) w p ls 3 ti '',\
+file_d2                 u (@j_rad0):(@j_dens0) w l ls 1 ti '',\
+file_d2                 u (@j_rad0):(@j_pres0) w l ls 2 ti '',\
+file_d2                 u (@j_rad0):(@j_vel 0) w l ls 3 ti '',\
+file_d2  eve dj::(dj-1) u (@j_rad0):(@j_dens0) w p ls 1 ti '',\
+file_d2  eve dj::(dj-1) u (@j_rad0):(@j_pres0) w p ls 2 ti '',\
+file_d2  eve dj::(dj-1) u (@j_rad0):(@j_vel 0) w p ls 3 ti '',\
+file_d3                 u (@j_rad0):(@j_dens0) w l ls 1 ti '',\
+file_d3                 u (@j_rad0):(@j_pres0) w l ls 2 ti '',\
+file_d3                 u (@j_rad0):(@j_vel 0) w l ls 3 ti '',\
+file_d3  eve dj::(dj-1) u (@j_rad0):(@j_dens0) w p ls 1 ti '',\
+file_d3  eve dj::(dj-1) u (@j_rad0):(@j_pres0) w p ls 2 ti '',\
+file_d3  eve dj::(dj-1) u (@j_rad0):(@j_vel 0) w p ls 3 ti '',\
+file_d4                 u (@j_rad0):(@j_dens0) w l ls 1 ti '',\
+file_d4                 u (@j_rad0):(@j_pres0) w l ls 2 ti '',\
+file_d4                 u (@j_rad0):(@j_vel 0) w l ls 3 ti '',\
+file_d4  eve dj::(dj-1) u (@j_rad0):(@j_dens0) w p ls 1 ti '',\
+file_d4  eve dj::(dj-1) u (@j_rad0):(@j_pres0) w p ls 2 ti '',\
+file_d4  eve dj::(dj-1) u (@j_rad0):(@j_vel 0) w p ls 3 ti '',\
+file_d5                 u (@j_rad0):(@j_dens0) w l ls 1 ti '',\
+file_d5                 u (@j_rad0):(@j_pres0) w l ls 2 ti '',\
+file_d5                 u (@j_rad0):(@j_vel 0) w l ls 3 ti '',\
+file_d5  eve dj::(dj-1) u (@j_rad0):(@j_dens0) w p ls 1 ti '',\
+file_d5  eve dj::(dj-1) u (@j_rad0):(@j_pres0) w p ls 2 ti '',\
+file_d5  eve dj::(dj-1) u (@j_rad0):(@j_vel 0) w p ls 3 ti ''
+
+unset key
+unset xr
+unset yr

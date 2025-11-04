@@ -1,0 +1,20 @@
+
+set xl  'mass'
+if( imass_range==1 ){
+    set xr [mass_min:mass_max]
+}
+set yl  'lg dens'
+set y2l 'lg pres'
+set ytics nomirror
+set y2tics
+set yr  [*:*]
+set y2r [*:*]
+plot \
+file_w1                 u (@i_mr):(log10(@i_dens)) w l ls 1         ti 'dens',\
+file_w1                 u (@i_mr):(log10(@i_pres)) w l ls 2 ax x1y2 ti 'pres',\
+file_w1  eve dj::(dj-1) u (@i_mr):(log10(@i_dens)) w p ls 1         ti '',\
+file_w1  eve dj::(dj-1) u (@i_mr):(log10(@i_pres)) w p ls 2 ax x1y2 ti ''
+
+set xr [*:*]
+unset y2l
+unset y2tics

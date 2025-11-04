@@ -1,0 +1,48 @@
+import sys
+import math
+import numpy as np
+import matplotlib as mpl
+import matplotlib.pyplot as plt
+from matplotlib import cm
+from matplotlib import colors as mcolors
+
+def colormap(fig,ax,clabel,cmin,cmax,cstep,xgrid,ygrid,cgrid,colorref) :
+
+    # color definition
+    #icolor     = 6
+    #color_list = []
+    #for i in range(0,icolor):
+        #color = cm.PuOr(float(i)/float(icolor))
+        #color_list.append(color)
+
+    # set c coordinate
+    qcolor = np.arange(cmin,cmax+  cstep,  cstep)
+    qticks = np.arange(cmin,cmax+2*cstep,2*cstep)
+
+    # contour definition
+    cont = ax.contourf(xgrid,ygrid,cgrid,qcolor,cmap=colorref,alpha=1.0)
+    cbar = fig.colorbar(cont,ticks=qticks)
+    cbar.set_label(clabel)
+
+    return
+
+def contourmap(fig,ax,xgrid,ygrid,cgrid) :
+    
+    # contour definition
+    mask    = cgrid > 0.5
+    ax.contourf(xgrid,ygrid,cgrid,2,colors=['w','w','orange'],alpha=0.1)
+    ax.contour (xgrid,ygrid,mask,colors='orange',linewidths=1.0)
+    return
+
+def set_xy_ticks(fig,ax,xlabel,xmin,xmax,ylabel,ymin,ymax):
+
+    # set x coordinate
+    ax.set_xlabel(xlabel)
+    ax.set_xlim(xmin,xmax)
+
+    # set y coordinate
+    ax.set_ylabel(ylabel)
+    ax.set_ylim(ymin,ymax)
+
+    return
+

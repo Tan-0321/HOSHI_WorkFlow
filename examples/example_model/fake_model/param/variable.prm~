@@ -1,0 +1,20 @@
+# independent variables changed by the iteration
+16            # DON'T CHANGE IT. total variable number
+ 1            dmas
+ 1            density
+ 1            temperature
+ 1            omega
+ 1            viscous heating
+ 0            qomg_B
+ 1	      mass
+ 1            velocity
+ 1            radius
+ 1            luminosity
+ 1            torq
+ 0            omg_B
+ 0            Ar
+ 0            Br
+ 0            Ar_im
+ 0            Br_im
+0
+ no REAL parameters

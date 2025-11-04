@@ -1,0 +1,83 @@
+import sys
+import numpy as np
+
+class Accretion:
+    def __init__(self,fname):
+        self.fname = fname
+        return
+        
+    def get_lmax(self) :
+        return self.lmax
+
+    def get_nstg(self,l) :
+        return self.nstg[l]
+
+    def get_tacc(self,l) :
+        return self.tacc[l]
+
+    def get_menv(self,l) :
+        return self.menv[l]
+
+
+    def read_file(self):
+        # define necessary data
+        self.lmax = 0
+        self.nstg = []
+        self.tacc = []
+        self.menv = []
+
+        # store all accretion data
+        with open(self.fname,'r') as f:
+            line_all = f.readlines()
+
+        # get rid of description
+        line_data = []
+        for l in range(0,len(line_all)):
+            line = line_all[l].split()
+            if line[0]!='#' :
+                line_data.append(line)
+
+        # reduct unconnected data
+        line_red = []
+        lmax     = len(line_data)
+        # copy the last line
+        ldata    = lmax-1 - 0
+        line     = line_data[ldata]
+        line_red.append(line)
+        nstgb    = line[0]
+        # copy the 2nd last to first line
+        for l in range(1,lmax):
+            ldata    = lmax-1 - l
+            line     = line_data[ldata]
+            nstg     = line[0]
+            if int(nstg)==int(nstgb)-1 :
+                line_red.append(line)
+                nstgb = nstg
+        # reverse
+        line_red.reverse()
+
+        # take out necessary data
+        self.lmax = len(line_red)
+        for l in range(0,self.lmax):
+            line = line_red[l]
+            nstg = int  (line[ 1-1])
+            tacc = float(line[ 2-1])
+            menv = float(line[ 6-1])
+            self.nstg  .append(nstg )
+            self.tacc  .append(tacc )
+            self.menv  .append(menv )
+
+        print('read accretion data: %s' % self.fname)
+        return
+
+    def output(self):
+        print('summary data: %s' % self.fname)
+        for l in range(0,self.lmax):
+            nstg = self.get_nstg(l)
+            time = self.get_time(l)
+
+            print (l \
+                   ,nstg \
+                   ,time \
+            )
+        return

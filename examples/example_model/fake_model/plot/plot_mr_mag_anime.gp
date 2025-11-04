@@ -1,0 +1,17 @@
+
+set xl  'mass'
+set yl  '{/Symbol W} [day^{-1}]'
+set y2l 'Bp [G]'
+set ytics nomirror
+set y2tics
+#set xr  [0:0.4]
+set yr  [-2e1:2e1]
+set y2r [-1e8:1e8]
+plot \
+file_w1                 u (@i_mr):( @i_omg ) w l ls  1         ti '{/Symbol W}',\
+file_w1                 u (@i_mr):( @i_Bphi) w l ls  2 ax x1y2 ti 'B_{phi}',\
+file_w1  eve dj::(dj-1) u (@i_mr):( @i_omg ) w p ls  1         ti '',\
+file_w1  eve dj::(dj-1) u (@i_mr):( @i_Bphi) w p ls  2 ax x1y2 ti '',\
+
+unset y2l
+unset y2tics

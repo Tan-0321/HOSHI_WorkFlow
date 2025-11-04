@@ -1,0 +1,25 @@
+# for mesh control
+8
+ 0	: igrid
+ 1	: dnstg_grid
+ 1	: kelmx
+ 1	: kaddx
+ 1024	: ndv_max
+ 1	: isw_frqD
+ 1	: isw_frqT
+ 15	: jcent
+10
+ 4.d0	: fcrit_dq
+ 0.2d0	: dlgT
+ 6.5d0	: lgT_frqM
+ 9.0d0	: lgT_frqD
+ 5.5d0	: lgT_frqT
+ 1.0d0	: frq_M_0
+ 3.0d0	: frq_ctoe
+ 3.0d0	: cc_dens
+ 3.0d0	: cc_temp
+ 1.d-4	: dmf_cent
+
+# grid number can change if igrid==1 and ichgm==1.
+# ndv_max is the new total grid number.
+# each time, kelmx meshes are removed and kaddx meshes are inserted.

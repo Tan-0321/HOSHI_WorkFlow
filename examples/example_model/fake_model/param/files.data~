@@ -1,0 +1,25 @@
+# input data files for evolution calculation
+18
+ data/ZSOLAR.DAT.KOBAYASHI
+ data/mass49J1.txt
+ data/matrix49J1.txt
+ data/mainrate49J1.txt
+ data/btrate49J1.txt
+ data/weak49J1e.txt
+ data/sweak49J1.txt
+ data/massnse_49.txt
+ data/ptfnse_49.txt
+ data/nrconnect_49_49.txt
+ data/wrate_nse.dat
+ data/mainchnl49J1.txt
+ data/fenh_trrate49J1.txt
+ data/fenh_wkrate49J1.txt
+ data/dlryetab.txt
+ data/toki13tab.txt
+ opac/opal
+ data/helm_table.dat
+
+ 1      : for initial composition, called for nstg=0
+ 2-7,12 : considered nuclei
+ 8-11   : considered nuclei in the NSE compositions
+ 13,14  : enhancement foctors for reaction rates

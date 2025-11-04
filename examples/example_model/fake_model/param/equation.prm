@@ -1,0 +1,20 @@
+# considered equation
+16            # DON'T CHANGE. total variable number
+ 0	      dmass
+ 1	      mass     conservation
+ 1	      energy   conservation
+ 1	      ang.mom. conservation
+ 1	      viscous heating
+ 0	      domgB
+ 0	      mesh frequency
+ 1	      velocity
+ 1	      hydro static/dynamic
+ 1	      luminosity
+ 1	      torq
+ 0	      omgB
+ 0	      B-poloidal
+ 0	      B-toroidal
+ 0	      B-poloidal_im
+ 0	      B-toroidal_im
+0
+ no REAL parameters

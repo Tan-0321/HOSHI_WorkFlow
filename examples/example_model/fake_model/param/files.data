@@ -1,0 +1,26 @@
+# input data files for evolution calculation
+18
+ opac/opal
+ data/ZSOLAR.DAT.KOBAYASHI
+ data/mass153J1.txt
+ data/matrix153J1.txt
+ data/mainrate153J1.txt
+ data/btrate153J1.txt
+ data/weak153J1e.txt
+ data/sweak153J1.txt
+ data/massnse_153.txt
+ data/ptfnse_153.txt
+ data/nrconnect_153_153.txt
+ data/wrate_nse.dat
+ data/mainchnl153J1.txt
+ data/fenh_trrate153J1.txt
+ data/fenh_wkrate153J1.txt
+ data/dlryetab.txt
+ data/toki13tab.txt
+ data/helm_table.dat
+
+ 1	: opacity data
+ 2      : for initial composition, called for nstg=0
+ 3-8,13 : considered nuclei
+ 9-12   : considered nuclei in the NSE compositions
+ 14,15  : enhancement foctors for reaction rates

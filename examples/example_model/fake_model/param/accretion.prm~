@@ -1,0 +1,10 @@
+# accretion parameters
+1
+ 1	: isw_accretion
+6
+ 1.0d-2		: mdot_accretion
+ 1.0d17		: xj_accretion
+ 1.0d3		: Bpole_accretion
+ 3.0d1		: M_cloud
+ 1.0d0		: Sigma_cloud
+ 1.0d0		: f_disk_star_max

@@ -1,0 +1,94 @@
+# mass range
+imass_range=1
+mass_min ='0.0'
+mass_max ='5.0'
+#mass_min ='*'
+#mass_max ='*'
+
+# function
+filt(i_in,i_set,x)= (i_in==i_set) ? x : 1/0
+lg(x)             = (x>0.) ? log10(x) : ( (x<0.) ? log10(-x) : 0.)
+log_pos(x)        = (x>0.) ? log10(x) : 1/0
+log_neg(x)        = (x<0.) ? log10(-x): 1/0
+
+Prot(rad,vrot)    = (6.28*rad*6.96e10)/(vrot*1e5)/(24*3600)
+Beq(vel,dens)     =  vel * sqrt( 12.56*dens )
+vrot(rad,omg)     =  rad*omg / 8.64e4
+
+# summary
+dnstg   = 10
+k_nstg  ='$1'
+k_ievo  ='$2'
+k_mlos  ='$3'
+k_time  ='$5'
+k_dtim  ='$6'
+k_mtot  ='$7'
+k_etot  ='$8'
+k_jtot  ='$9'
+k_rhoc  ='$12'
+k_tmpc  ='$13'
+k_Rsrf  ='$14'
+k_Lum   ='$15'
+k_Teff  ='$16'
+k_vrot  ='$17'
+#k_Bsrf  ='$22'
+#k_Prot  ='$26'
+#k_taucv ='$27'
+#k_Rossby='$28'
+k_Lnuc  ='$28'
+k_Lnu   ='$29'
+k_Lrad  ='$30'
+
+# str
+dj = 2**4
+i_mr   ='$4'
+i_rad  ='$7'
+i_vel  ='$9'
+i_pres ='$10'
+i_dens ='$11'
+i_temp ='$12'
+i_sk   ='$13'
+i_cs   ='$15'
+i_D    ='$19'
+i_H    ='$20'
+i_He   ='$21'
+i_C    ='$22'
+i_N    ='$23'
+i_O    ='$24'
+i_Ne   ='$25'
+i_Si   ='$27'
+i_Fe   ='$28'
+i_xj   ='$29'
+i_omg  ='$30'
+i_eent ='$31'
+i_enuc ='$32'
+i_enu  ='$33'
+i_nad  ='$35'
+i_nrad ='$36'
+i_ncv  ='$37'
+i_nmu  ='$38'
+i_Dthm ='$39'
+i_Dchem='$40'
+i_Brad ='$42'
+i_Bphi ='$43'
+i_vcv  ='$44'
+i_lcv  ='$45'
+i_alp  ='$46'
+i_Beq  ='$47'
+i_vrot ='vrot(@i_rad,@i_omg)'
+i_Brad_im ='$48'
+i_Bphi_im ='$49'
+
+# str
+dj = 2**4
+j_mr   ='$2'
+j_rad  ='($4)/7.'
+j_vel  ='($5)/2e-4'
+j_pres ='($6)/5e14'
+j_dens ='($7)/1e0'
+j_rad0 ='$8'
+j_vel0 ='$9'
+j_pres0='$10'
+j_dens0='$11'
+j_temp ='$12'
+j_sk   ='$13'

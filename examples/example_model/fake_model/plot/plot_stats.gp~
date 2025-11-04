@@ -1,0 +1,64 @@
+N_max = 30000
+array nstg [N_max]
+array dt_rec[N_max]
+array ievo_rec[N_max]
+array mtot_rec[N_max]
+array etot_rec[N_max]
+array jtot_rec[N_max]
+array rhoc_rec[N_max]
+array tmpc_rec[N_max]
+array Teff_rec[N_max]
+array Lum_rec[N_max]
+
+array rtime[N_max]
+array ievo[N_max]
+array mtot[N_max]
+array etot[N_max]
+array jtot[N_max]
+array rhoc[N_max]
+array tmpc[N_max]
+array Teff[N_max]
+array Lum[N_max]
+
+
+stats file_summary u (nstg[$0+1]=@k_nstg, \
+ievo_rec[$0+1]=@k_ievo, \
+dt_rec[$0+1]=@k_dtim, \
+mtot_rec[$0+1]=@k_mtot, \
+etot_rec[$0+1]=@k_etot, \
+jtot_rec[$0+1]=@k_jtot, \
+rhoc_rec[$0+1]=@k_rhoc, \
+tmpc_rec[$0+1]=@k_tmpc, \
+Teff_rec[$0+1]=@k_Teff, \
+Lum_rec[$0+1]=@k_Lum, \
+0) nooutput
+
+rtime[1]= dt_rec[STATS_records]
+mtot [1]= mtot_rec[STATS_records]
+etot [1]= lg(-etot_rec[STATS_records])
+jtot [1]= lg( jtot_rec[STATS_records])
+
+istep   =2
+nstep   =N_max
+do for [i=2:STATS_records]{
+   j = STATS_records+1-i
+   if( nstep>nstg[j] ){
+    rtime[istep]= rtime[istep-1] + dt_rec[j]
+    mtot [istep]= mtot_rec[j]
+    etot [istep]= lg(-etot_rec[j])
+    jtot [istep]= lg( jtot_rec[j])
+
+    ievo [istep]= ievo_rec[j]
+    rhoc [istep]= lg( rhoc_rec[j])
+    tmpc [istep]= lg( tmpc_rec[j])
+    Teff [istep]= lg( Teff_rec[j])
+    Lum  [istep]= lg( Lum_rec[j] )
+
+    istep = istep + 1
+    nstep = nstg[j]
+   }
+}
+do for [i=1:istep-1]{
+   rtime[i] = lg( rtime[i] )
+}
+

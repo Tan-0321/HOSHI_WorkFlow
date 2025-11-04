@@ -1,0 +1,21 @@
+ strdata
+ summary
+ * * *
+ m1.5e1_z1.0e0
+ m1.5e1_z1.0e0
+ * * *
+ e			: NAME_IN
+ 0			: NAME_OUT = NBEGIN
+ 100			: NSTG_max
+ 1.d10	2		: MAXQTY, 0:time 1:tmp 2:den 3:Xp 4:Xa 5:XC 6:XO
+ 1			: 1-reduce D and 7Li when the new input model is made.
+ 1d-0			: new relative metallicity
+ 0	 		: 1-change mass
+ 5.0d0			: new total mass
+
+# grid number can change only if ichgm==1.
+# see, grid.prm.
+
+
+ 8146			: NAME_OUT = NBEGIN
+ 8500			: NSTG_max

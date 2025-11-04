@@ -1,0 +1,32 @@
+# convergence parameters
+15
+  60	: maxrlx
+  2	: irep_max
+  1	: iconv_den
+  1	: iconv_tmp
+  1	: iconv_rad
+  1	: iconv_vel
+  0	: iconv_mas
+  1	: iconv_lum
+  1	: iconv_omg
+  1	: iconv_trq
+  0	: iconv_frq
+  0	: iconv_vsc
+  0	: iconv_ar
+  0	: iconv_br
+  0	: iconv_omgB
+5
+  1.d-5	: acclim
+  7.d-1	: dfrac
+  0.8d0	: frac1
+  0.6d0	: frac2
+  0.4d0	: frac3
+
+maxrlx : maximum iteration number
+acclim : convergence condition
+dfrac  : maximum modification, default = 3.d-2.
+frac1  : basic contraction factor
+frac2  : contraction factor for mod(nrlx,2)=1
+frac3  : contraction factor for mod(nrlx,3)=1
+
+

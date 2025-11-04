@@ -1,0 +1,23 @@
+#!/usr/bin/sh
+rm fgtmp*
+
+rm -r -f cxdata
+rm -r -f pgfile
+rm -r -f pngfile
+rm -r -f strdata
+rm -r -f summary
+rm -r -f writestr
+rm -f stream.dat
+mkdir cxdata
+mkdir pgfile
+mkdir pngfile
+mkdir strdata
+mkdir summary
+mkdir writestr
+
+rm evol
+cp ${HOSHI_DIR}/${HOSHI_version}/bin/evol .
+
+cp strdata_e/* strdata/.
+cp cxdata_e/* cxdata/.
+

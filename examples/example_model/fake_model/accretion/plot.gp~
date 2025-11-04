@@ -1,0 +1,19 @@
+res
+
+set outp "plot.pdf"
+set term pdf
+
+file_summary = "../summary/summary.txt"
+year = 3.15e7
+J0   = 1e49
+
+set style line 1 lw 2 lc "red"  dt 1
+set style line 2 lw 2 lc "blue" dt 1
+
+
+set xl "age [year]"
+set yl "q"
+
+plot \
+file_summary u ($5/year):7       w l ls 1 ti "mass",\
+file_summary u ($5/year):($9/J0) w l ls 2 ti "J49"

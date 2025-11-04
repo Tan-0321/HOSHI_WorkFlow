@@ -1,0 +1,57 @@
+E_exp=$1
+t_bomb=$2
+#massout=2.85
+massout=1e5
+#echo $E_exp
+#echo $t_bomb
+
+isw=2
+if [ $isw = 1 ] ; then
+    masscut=1.0
+    nstg=06411
+    python3 yield.py $E_exp $t_bomb $nstg $masscut $massout  >  yield.dat
+    nstg=`python makesh.py 1.`
+    python3 yield.py $E_exp $t_bomb $nstg $masscut $massout  >> yield.dat
+    nstg=`python makesh.py 3.`
+    python3 yield.py $E_exp $t_bomb $nstg $masscut $massout  >> yield.dat
+    nstg=`python makesh.py 10.`
+    python3 yield.py $E_exp $t_bomb $nstg $masscut $massout  >> yield.dat
+    nstg=`python makesh.py 30.`
+    python3 yield.py $E_exp $t_bomb $nstg $masscut $massout  >> yield.dat
+    nstg=`python makesh.py 100.`
+    python3 yield.py $E_exp $t_bomb $nstg $masscut $massout  >> yield.dat
+    nstg=`python makesh.py 300.`
+    python3 yield.py $E_exp $t_bomb $nstg $masscut $massout  >> yield.dat
+    nstg=`python makesh.py 1000.`
+    python3 yield.py $E_exp $t_bomb $nstg $masscut $massout  >> yield.dat
+    nstg=`python makesh.py 3000.`
+    python3 yield.py $E_exp $t_bomb $nstg $masscut $massout  >> yield.dat
+    nstg=`python makesh.py 10000.`
+    python3 yield.py $E_exp $t_bomb $nstg $masscut $massout  >> yield.dat
+fi
+if [ $isw = 2 ] ; then
+    nstg=06411
+    masscut=1.0
+    python3 yield.py $E_exp $t_bomb $nstg $masscut $massout >  yield.dat
+    nstg=`python makesh.py 10000.`
+    masscut=1.0
+    python3 yield.py $E_exp $t_bomb $nstg $masscut $massout >> yield.dat
+    masscut=1.5
+    python3 yield.py $E_exp $t_bomb $nstg $masscut $massout >> yield.dat
+    masscut=1.6
+    python3 yield.py $E_exp $t_bomb $nstg $masscut $massout >> yield.dat
+    masscut=1.7
+    python3 yield.py $E_exp $t_bomb $nstg $masscut $massout >> yield.dat
+    masscut=1.8
+    python3 yield.py $E_exp $t_bomb $nstg $masscut $massout >> yield.dat
+    masscut=1.9
+    python3 yield.py $E_exp $t_bomb $nstg $masscut $massout >> yield.dat
+    masscut=2.0
+    python3 yield.py $E_exp $t_bomb $nstg $masscut $massout >> yield.dat
+    masscut=2.1
+    python3 yield.py $E_exp $t_bomb $nstg $masscut $massout >> yield.dat
+    masscut=2.2
+    python3 yield.py $E_exp $t_bomb $nstg $masscut $massout >> yield.dat
+    masscut=2.3
+    python3 yield.py $E_exp $t_bomb $nstg $masscut $massout >> yield.dat
+fi

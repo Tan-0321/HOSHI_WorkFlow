@@ -1,0 +1,74 @@
+res
+
+set term pdf
+set outp 'plot.pdf'
+
+set style line  1 lw 0.3 ps 0.3 lc 1
+set style line  2 lw 0.3 ps 0.3 lc 2
+set style line  3 lw 0.3 ps 0.3 lc 3
+set style line  4 lw 0.3 ps 0.3 lc 4
+set style line  5 lw 0.3 ps 0.3 lc 5
+set style line  6 lw 0.3 ps 0.3 lc 6
+
+set style line 11 lw 0.3 ps 0.3 lc 1 dt 2 
+set style line 12 lw 0.3 ps 0.3 lc 2 dt 2 
+set style line 13 lw 0.3 ps 0.3 lc 3 dt 2 
+set style line 14 lw 0.3 ps 0.3 lc 4 dt 2 
+set style line 15 lw 0.3 ps 0.3 lc 5 dt 2 
+set style line 16 lw 0.3 ps 0.3 lc 6 dt 2 
+
+
+file00 = "../writestr/str06650.txt"
+file01 = "../writestr/str07800.txt"
+file02 = "../writestr/str08000.txt"
+file03 = "../writestr/str08200.txt"
+file04 = "../writestr/str08400.txt"
+file05 = "../writestr/str08600.txt"
+file06 = "../writestr/str08800.txt"
+file07 = "../writestr/str09000.txt"
+file08 = "../writestr/str09200.txt"
+file09 = "../writestr/str09400.txt"
+file10 = "../writestr/str09600.txt"
+file11 = "../writestr/str09800.txt"
+file12 = "../writestr/str10000.txt"
+
+file01 = "../writestr/str08000.txt"
+file02 = "../writestr/str09000.txt"
+file03 = "../writestr/str10000.txt"
+file04 = "../writestr/str11000.txt"
+file05 = "../writestr/str12000.txt"
+file06 = "../writestr/str13000.txt"
+file07 = "../writestr/str14000.txt"
+file08 = "../writestr/str15000.txt"
+file09 = "../writestr/str16000.txt"
+file10 = "../writestr/str17000.txt"
+file11 = "../writestr/str18000.txt"
+file12 = "../writestr/str19000.txt"
+
+set xl 'enclosed mass [M_{sun}]'
+set xr [1.2:2.0]
+set yl 'radius [cm]'
+set yr [*:*]
+
+ix = 7
+iy = 9
+set log y
+
+set key l t
+
+plot \
+file00 u ix:iy w l ls  1 ti "00",\
+file02 u ix:iy w l ls  2 ti "02",\
+file04 u ix:iy w l ls  3 ti "04",\
+file06 u ix:iy w l ls  4 ti "06",\
+file08 u ix:iy w l ls  5 ti "08",\
+file10 u ix:iy w l ls  6 ti "10",\
+file12 u ix:iy w l ls  1 ti "12",\
+\
+file00 eve 1 u ix:iy w p ls  1 ti "",\
+file02 eve 1 u ix:iy w p ls  2 ti "",\
+file04 eve 1 u ix:iy w p ls  3 ti "",\
+file06 eve 1 u ix:iy w p ls  4 ti "",\
+file08 eve 1 u ix:iy w p ls  5 ti "",\
+file10 eve 1 u ix:iy w p ls  6 ti "",\
+file12 eve 1 u ix:iy w p ls  1 ti "",\

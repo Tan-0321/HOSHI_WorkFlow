@@ -1,0 +1,65 @@
+
+
+set xl  'lg rad'
+set yl  'lg dens'
+set y2l 'lg pres'
+set ytics nomirror
+set y2tics
+set yr  [*:*]
+set y2r [*:*]
+plot \
+file_w1                 u (log10(@i_rad)):(log10(@i_dens)) w l ls 1         ti 'dens',\
+file_w1                 u (log10(@i_rad)):(log10(@i_pres)) w l ls 2 ax x1y2 ti 'pres',\
+file_w1  eve dj::(dj-1) u (log10(@i_rad)):(log10(@i_dens)) w p ls 1         ti '',\
+file_w1  eve dj::(dj-1) u (log10(@i_rad)):(log10(@i_pres)) w p ls 2 ax x1y2 ti ''
+
+set xr [*:*]
+unset y2l
+unset y2tics
+
+
+
+
+# for explosion?
+
+#set xl  'rad'
+#set yl  'normalized quantities'
+#set ytics nomirror
+#set yr [-0.1:4.2]
+#set xr [0:1.2]
+#set key l t
+#plot \
+file_d1                 u (@j_rad):(@j_dens) w l ls 1 ti 'dens',\
+file_d1                 u (@j_rad):(@j_pres) w l ls 2 ti 'pres',\
+file_d1                 u (@j_rad):(@j_vel ) w l ls 3 ti 'vel ',\
+file_d1  eve dj::(dj-1) u (@j_rad):(@j_dens) w p ls 1 ti '',\
+file_d1  eve dj::(dj-1) u (@j_rad):(@j_pres) w p ls 2 ti '',\
+file_d1  eve dj::(dj-1) u (@j_rad):(@j_vel ) w p ls 3 ti '',\
+file_d2                 u (@j_rad):(@j_dens) w l ls 1 ti '',\
+file_d2                 u (@j_rad):(@j_pres) w l ls 2 ti '',\
+file_d2                 u (@j_rad):(@j_vel ) w l ls 3 ti '',\
+file_d2  eve dj::(dj-1) u (@j_rad):(@j_dens) w p ls 1 ti '',\
+file_d2  eve dj::(dj-1) u (@j_rad):(@j_pres) w p ls 2 ti '',\
+file_d2  eve dj::(dj-1) u (@j_rad):(@j_vel ) w p ls 3 ti '',\
+file_d3                 u (@j_rad):(@j_dens) w l ls 1 ti '',\
+file_d3                 u (@j_rad):(@j_pres) w l ls 2 ti '',\
+file_d3                 u (@j_rad):(@j_vel ) w l ls 3 ti '',\
+file_d3  eve dj::(dj-1) u (@j_rad):(@j_dens) w p ls 1 ti '',\
+file_d3  eve dj::(dj-1) u (@j_rad):(@j_pres) w p ls 2 ti '',\
+file_d3  eve dj::(dj-1) u (@j_rad):(@j_vel ) w p ls 3 ti '',\
+file_d4                 u (@j_rad):(@j_dens) w l ls 1 ti '',\
+file_d4                 u (@j_rad):(@j_pres) w l ls 2 ti '',\
+file_d4                 u (@j_rad):(@j_vel ) w l ls 3 ti '',\
+file_d4  eve dj::(dj-1) u (@j_rad):(@j_dens) w p ls 1 ti '',\
+file_d4  eve dj::(dj-1) u (@j_rad):(@j_pres) w p ls 2 ti '',\
+file_d4  eve dj::(dj-1) u (@j_rad):(@j_vel ) w p ls 3 ti '',\
+file_d5                 u (@j_rad):(@j_dens) w l ls 1 ti '',\
+file_d5                 u (@j_rad):(@j_pres) w l ls 2 ti '',\
+file_d5                 u (@j_rad):(@j_vel ) w l ls 3 ti '',\
+file_d5  eve dj::(dj-1) u (@j_rad):(@j_dens) w p ls 1 ti '',\
+file_d5  eve dj::(dj-1) u (@j_rad):(@j_pres) w p ls 2 ti '',\
+file_d5  eve dj::(dj-1) u (@j_rad):(@j_vel ) w p ls 3 ti ''
+
+unset key
+unset xr
+unset yr

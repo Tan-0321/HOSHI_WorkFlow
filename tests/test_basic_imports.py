@@ -9,9 +9,9 @@ def test_import_file_name_convention_via_aggregate():
     assert isinstance(name, str) and name.startswith("M")
 
 
-def test_import_file_name_convention_via_shim():
-    # Import via legacy top-level shim
-    mod = importlib.import_module("file_name_convention")
+def test_import_file_name_convention_direct():
+    # Direct import from the new namespace (legacy top-level shims have been removed)
+    mod = importlib.import_module("hoshi_workflow.file_name_convention")
     assert hasattr(mod, "parse_name")
     name = mod.generate_name(mass=0.85)
     parsed = mod.parse_name(name)
@@ -22,7 +22,5 @@ def test_hoshi_reader_imports():
     # Aggregate import
     mod = importlib.import_module("hoshi_workflow.hoshi_reader")
     assert hasattr(mod, "HoshiModel")
-
-    # Legacy shim
-    mod2 = importlib.import_module("HOSHI_reader")
-    assert hasattr(mod2, "HoshiHistory")
+    # Ensure reader package exposes history/profile classes
+    assert hasattr(mod, "HoshiHistory")
