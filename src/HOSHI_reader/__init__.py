@@ -1,11 +1,10 @@
-"""HOSHI_reader package: export reader classes.
+"""Compatibility shim for `HOSHI_reader`.
 
-This package makes the main reader classes available at
-
-    from HOSHI_reader import HoshiReader, HoshiHistory, HoshiProfile
-
+Delegates to `hoshi_workflow.HOSHI_reader` so both
+`from HOSHI_reader import HoshiHistory` and
+`from hoshi_workflow.HOSHI_reader import HoshiHistory` work.
 """
 
-from .HoshiReader import HoshiHistory, HoshiProfile, HoshiReader  # noqa: F401
+from hoshi_workflow.hoshi_reader import HoshiHistory, HoshiProfile, HoshiModel  # type: ignore
 
-__all__ = ["HoshiReader", "HoshiHistory", "HoshiProfile"]
+__all__ = ["HoshiModel", "HoshiHistory", "HoshiProfile"]

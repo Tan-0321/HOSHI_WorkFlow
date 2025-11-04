@@ -1,8 +1,10 @@
-"""file_name_convention package: utility functions for naming and parsing.
+"""Compatibility shim for `file_name_convention`.
 
-Expose primary helpers at package level.
+This module delegates to `hoshi_workflow.file_name_convention` so existing
+imports like `import file_name_convention` continue to work while the
+real implementation lives under the `hoshi_workflow` namespace.
 """
 
-from .FileNameConvention import *  # noqa: F401,F403
+from hoshi_workflow.file_name_convention import *  # type: ignore
 
 __all__ = [name for name in dir() if not name.startswith("_")]

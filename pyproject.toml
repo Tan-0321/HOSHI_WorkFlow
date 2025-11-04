@@ -50,5 +50,6 @@ exclude = [
     "**/*.pyc",
     "**/*.ipynb",
 ]
-# Avoid conflicts with black
-ignore = ["E203", "W503"]
+# Note: rule ignores removed because some ruff versions may not accept
+# certain legacy flake8 selectors. If needed, add specific ignores later
+# after checking `ruff rules` for available codes.
