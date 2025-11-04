@@ -1,0 +1,7 @@
+pytest>=7.0
+ruff
+black>=23.1.0
+isort>=5.0.0
+mypy>=0.971
+pre-commit>=2.20
+coverage>=6.0

@@ -7,18 +7,18 @@ The implementation focuses on safer file operations (backups, atomic
 replace) and clearer logging.
 """
 
-import subprocess
-import sys
-from pathlib import Path
-from datetime import datetime
 import argparse
 import logging
-import tempfile
 import shutil
-from typing import Union, Dict
+import subprocess
+import sys
+import tempfile
+from datetime import datetime
+from pathlib import Path
+from typing import Dict, Union
+
 import FileNameConvention as fnc
 import numpy as np
-
 
 logger = logging.getLogger(__name__)
 # Best practice for libraries: attach a NullHandler so that importing this
@@ -26,7 +26,13 @@ logger = logging.getLogger(__name__)
 logger.addHandler(logging.NullHandler())
 
 
-def enable_logging(level: int = logging.INFO, *, handler: logging.Handler | None = None, fmt: str | None = None, force: bool = False) -> None:
+def enable_logging(
+    level: int = logging.INFO,
+    *,
+    handler: logging.Handler | None = None,
+    fmt: str | None = None,
+    force: bool = False,
+) -> None:
     """Enable logging for this module.
 
     This configures a StreamHandler on the module logger (not the root
@@ -56,7 +62,9 @@ def enable_logging(level: int = logging.INFO, *, handler: logging.Handler | None
     handler.setLevel(level)
 
     # avoid adding duplicate handlers
-    if not force and any(type(h) is type(handler) and h.level == handler.level for h in logger.handlers):
+    if not force and any(
+        type(h) is type(handler) and h.level == handler.level for h in logger.handlers
+    ):
         logger.debug("Logging already enabled for module %s", __name__)
         logger.setLevel(level)
         return
@@ -77,11 +85,14 @@ def disable_logging() -> None:
     logger.propagate = True
     logger.setLevel(logging.WARNING)
     logger.debug("Module logging disabled")
+
+
 LOGGING_ENABLED = True
 
 
 class HoshiModel:
     """Represents a HOSHI model directory containing an `evol` executable."""
+
     DIR = None
     PROGRAM_EXEC = None
     henyey_params = None
@@ -115,11 +126,21 @@ class HoshiModel:
                 # relative paths are created relative to the model dir
                 log_file = self.DIR / log_file
 
-        logger.info("Running '%s' in %s, logging output to %s", self.PROGRAM_EXEC.name, self.DIR, log_file)
+        logger.info(
+            "Running '%s' in %s, logging output to %s",
+            self.PROGRAM_EXEC.name,
+            self.DIR,
+            log_file,
+        )
         with open(log_file, "wb") as f:
             # Run the executable and capture both stdout and stderr.
             # Run in the model directory to ensure relative paths behave as expected.
-            proc = subprocess.run([str(self.PROGRAM_EXEC)], stdout=f, stderr=subprocess.STDOUT, cwd=str(self.DIR))
+            proc = subprocess.run(
+                [str(self.PROGRAM_EXEC)],
+                stdout=f,
+                stderr=subprocess.STDOUT,
+                cwd=str(self.DIR),
+            )
         logger.info("Process finished with return code %d", proc.returncode)
 
         if check and proc.returncode != 0:
@@ -159,8 +180,8 @@ class HoshiModel:
                 line = line.split(":", 1)[0].strip()
                 if line and not (line.startswith("*") or line.startswith("#")):
                     values.append(line)
-        #print(values)
-        
+        # print(values)
+
         keys = list(params.keys())
         for i, key in enumerate(keys):
             if i < len(values):
@@ -170,7 +191,9 @@ class HoshiModel:
         #     params['MAXQTY'] = (parts[0], parts[1])
         return params
 
-    def modify_input_henyey(self, new_params: Dict[str, str], *, dry_run: bool = False, backup: bool = True) -> None:
+    def modify_input_henyey(
+        self, new_params: Dict[str, str], *, dry_run: bool = False, backup: bool = True
+    ) -> None:
         """Modify `param/files.henyey` using `new_params`.
 
         Matches parameters positionally: non-empty non-comment lines are
@@ -241,7 +264,9 @@ class HoshiModel:
 
         # atomic write: create temp file in same dir then replace
         tmp_dir = str(input_file.parent)
-        with tempfile.NamedTemporaryFile("w", delete=False, dir=tmp_dir, encoding="utf-8") as tf:
+        with tempfile.NamedTemporaryFile(
+            "w", delete=False, dir=tmp_dir, encoding="utf-8"
+        ) as tf:
             tf.write(new_content)
             tmp_path = Path(tf.name)
 
@@ -252,37 +277,46 @@ class HoshiModel:
         # the caller so they can adjust inputs or the files.henyey layout.
         if pending:
             missing = list(pending.keys())
-            logger.warning("Some new_params were not applied (no matching lines): %s", missing)
+            logger.warning(
+                "Some new_params were not applied (no matching lines): %s", missing
+            )
             raise KeyError(f"The following parameters were not applied: {missing}")
 
         self.henyey_params = self._read_henyey_params()
         return None
-    
+
     def fake_run(self) -> None:
         logger.info("Running fake simulation with current parameters:")
-        mass = self.henyey_params.get('new_mass').replace('d', 'e') 
-        z_rel = self.henyey_params.get('relative_metallicity').replace('d', 'e')
-        new_name = fnc.generate_name(
-            mass=float(mass) if mass is not None else None,
-            metallicity=float(z_rel) if z_rel is not None else None,
-        ) + ".fake"
+        mass = self.henyey_params.get("new_mass").replace("d", "e")
+        z_rel = self.henyey_params.get("relative_metallicity").replace("d", "e")
+        new_name = (
+            fnc.generate_name(
+                mass=float(mass) if mass is not None else None,
+                metallicity=float(z_rel) if z_rel is not None else None,
+            )
+            + ".fake"
+        )
         with open(self.DIR / "strdata" / new_name, "a") as f:
-            f.write(f"Fake simulation with mass={mass}, relative_metallicity={z_rel}, output name={new_name}\n")
-        
+            f.write(
+                f"Fake simulation with mass={mass}, relative_metallicity={z_rel}, output name={new_name}\n"
+            )
+
     def make_initial_model(
-        self, 
+        self,
         initial_structure_file: str,
         target_relative_metallicity: float,
         target_mass: float,
-        ) -> None:
+    ) -> None:
         input_structure_file = str(initial_structure_file).strip()
-        if self.henyey_params['input_structure_file'] != input_structure_file:
+        if self.henyey_params["input_structure_file"] != input_structure_file:
             logger.info("Updating input_structure_file to %s", input_structure_file)
         val_dict = fnc.parse_name(input_structure_file)
-        mass = val_dict.get('mass')
-        z_rel = val_dict.get('metallicity')
+        mass = val_dict.get("mass")
+        z_rel = val_dict.get("metallicity")
         if mass is None or z_rel is None:
-            raise ValueError(f"Could not parse mass or metallicity from filename {input_structure_file}")
+            raise ValueError(
+                f"Could not parse mass or metallicity from filename {input_structure_file}"
+            )
         mass = float(mass)
         z_rel = float(z_rel)
         loop_num = np.log10(abs(max(target_relative_metallicity, 1e-5) / z_rel))
@@ -293,24 +327,30 @@ class HoshiModel:
         if target_relative_metallicity < 1e-5:
             extra_loop += 1
         loop_num = int(abs(loop_num)) + extra_loop
-        
-        self.modify_input_henyey({
-            'FLAG_change_mass': '1',
-            'new_mass': str(target_mass),
-            })
-        if self.henyey_params['NAME_OUT'] != 'e':
-            self.modify_input_henyey({
-                'NAME_OUT': 'e',
-                })
-        
+
+        self.modify_input_henyey(
+            {
+                "FLAG_change_mass": "1",
+                "new_mass": str(target_mass),
+            }
+        )
+        if self.henyey_params["NAME_OUT"] != "e":
+            self.modify_input_henyey(
+                {
+                    "NAME_OUT": "e",
+                }
+            )
+
         present_z_rel = z_rel
         present_input_structure_file = input_structure_file
-        while  loop_num > 0:
+        while loop_num > 0:
             logger.info("Making initial model, %d loops left...", loop_num)
             if loop_num == 1:
                 new_z_rel = target_relative_metallicity
             else:
-                new_z_rel = present_z_rel * np.power(10, np.sign(target_relative_metallicity - present_z_rel)) 
+                new_z_rel = present_z_rel * np.power(
+                    10, np.sign(target_relative_metallicity - present_z_rel)
+                )
             present_z_rel = new_z_rel
             loop_num -= 1
 
@@ -318,26 +358,22 @@ class HoshiModel:
                 mass=target_mass,
                 metallicity=new_z_rel,
             )
-            self.modify_input_henyey({
-                'input_structure_file': present_input_structure_file,
-                'output_structure_file': output_structure_file,
-                'relative_metallicity': str(new_z_rel),
-            })
-            
+            self.modify_input_henyey(
+                {
+                    "input_structure_file": present_input_structure_file,
+                    "output_structure_file": output_structure_file,
+                    "relative_metallicity": str(new_z_rel),
+                }
+            )
+
             exit_code = self.run()
             if exit_code != 0:
                 logger.error(
-                    "Faile to make input initial structure data with parameters: mass = %d, Z_rel = %d ", 
-                    target_mass, new_z_rel         
+                    "Faile to make input initial structure data with parameters: mass = %d, Z_rel = %d ",
+                    target_mass,
+                    new_z_rel,
                 )
                 return None
             present_input_structure_file = output_structure_file
-            
+
         return None
-        
-        
-            
-
-
-
-

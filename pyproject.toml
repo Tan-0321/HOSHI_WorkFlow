@@ -1,0 +1,38 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "hoshi-workflow"
+version = "0.1.0"
+description = "Usefull tools for HOSHI code."
+readme = "README.md"
+requires-python = ">=3.10"
+authors = [ { name = "Bingyang Tan" } ]
+license = { text = "MIT" }
+dependencies = [
+    "numpy",
+    "pandas",
+    "matplotlib",
+    "scipy",
+]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+    "ruff>=0.0",
+    "black>=23.1.0",
+    "isort>=5.0.0",
+    "mypy>=0.971",
+    "pre-commit>=2.20",
+    "coverage>=6.0",
+]

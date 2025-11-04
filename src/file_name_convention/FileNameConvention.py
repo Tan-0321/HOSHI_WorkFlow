@@ -1,18 +1,22 @@
-import sys
 import logging
-import numpy as np
+import sys
 from typing import Optional
+
+import numpy as np
 
 # Require Python 3.10+ for structural pattern matching (match/case)
 if sys.version_info < (3, 10):
-    raise RuntimeError("FileNameConvention requires Python 3.10 or newer for match/case support")
+    raise RuntimeError(
+        "FileNameConvention requires Python 3.10 or newer for match/case support"
+    )
 
 logger = logging.getLogger(__name__)
 
+
 def is_upper_single_char(s: str) -> bool:
-    """Return True if s is a single uppercase ASCII letter.
-    """
+    """Return True if s is a single uppercase ASCII letter."""
     return isinstance(s, str) and len(s) == 1 and s.isupper()
+
 
 def _gen_single_name(
     val: Optional[float],
@@ -22,7 +26,7 @@ def _gen_single_name(
 
     If ``val`` is None return None so callers can skip missing parameters.
 
-    The produced format is: 
+    The produced format is:
     <single-uppercase-label><two-digit-exponent>F<mantissa-with-d-as-decimal>
     Here the exponent has an offset of +10 applied.
     Example: M09F8d50 for mass = 0.85 (solar mass)
@@ -31,47 +35,51 @@ def _gen_single_name(
         return None
 
     match label:
-        case "mass" | 'm' | 'M':
+        case "mass" | "m" | "M":
             label = "M"
-        case "metallicity" | 'z' | 'Z':
+        case "metallicity" | "z" | "Z":
             label = "Z"
-        case "angular velocity" | 'o' | 'O':
+        case "angular velocity" | "o" | "O":
             label = "O"
-        case "initial helium abundance" | 'y' | 'Y':
+        case "initial helium abundance" | "y" | "Y":
             label = "Y"
         case _:
             if is_upper_single_char(label):
                 logger.info("Using label %s as provided.", label)
             else:
                 raise ValueError(f"Unrecognized label {label}")
-        
+
     # Optional exponent offset (keeps all expnonts positive)
     exp_offset = 10
     val *= np.power(10, exp_offset)
-    
-    sstr = f"{val:.2e}" # scientific notation with 2 decimal places
-    mantissa, exp_str = sstr.split('e')
+
+    sstr = f"{val:.2e}"  # scientific notation with 2 decimal places
+    mantissa, exp_str = sstr.split("e")
     if mantissa and exp_str:
-        sd = mantissa.replace('.', 'd') # significant digits
+        sd = mantissa.replace(".", "d")  # significant digits
         exp = int(exp_str)
         # Format exponent as two digits
         if exp >= 0:
             exp_str_fmt = f"{exp:02d}"
         else:
             raise ValueError(f"Negative exponent {exp} not expected after offset.")
-            #exp_str_fmt = f"-{abs(exp):02d}"
+            # exp_str_fmt = f"-{abs(exp):02d}"
         return f"{label}{exp_str_fmt}F{sd}"
     else:
         raise ValueError(f"Could not parse value {sstr}")
 
+
 def generate_name(
-    mass: float = None, 
+    mass: float = None,
     metallicity: float = None,
     angular_velocity: float = None,
     initial_helium_abundance: float = None,
     other_params: dict = None,
 ) -> str:
-    if all(v is None for v in (mass, metallicity, initial_helium_abundance, angular_velocity)):
+    if all(
+        v is None
+        for v in (mass, metallicity, initial_helium_abundance, angular_velocity)
+    ):
         raise ValueError("At least one quantity must be provided.")
     # Only generate fragments for parameters that are not None.
     name_parts = []
@@ -82,7 +90,9 @@ def generate_name(
     if angular_velocity is not None:
         name_parts.append(_gen_single_name(angular_velocity, label="angular velocity"))
     if initial_helium_abundance is not None:
-        name_parts.append(_gen_single_name(initial_helium_abundance, label="initial helium abundance"))
+        name_parts.append(
+            _gen_single_name(initial_helium_abundance, label="initial helium abundance")
+        )
     if other_params:
         for key, value in other_params.items():
             frag = _gen_single_name(value, label=key)
@@ -94,11 +104,12 @@ def generate_name(
     name_parts = [part for part in name_parts if part is not None]
     return "_".join(name_parts)
 
+
 def _parse_single_component(
     comp: str, expected_label: Optional[str] = None
 ) -> tuple[str, float]:
     """Parse a single component of the filename back into its numeric value.
-    
+
     Expected format: <Label><TwoDigitExponent>F<MantissaWithDAsDecimal>
     Example: M09F8d50 -> tuple('mass',0.85), in unit of solar mass
     """
@@ -106,36 +117,39 @@ def _parse_single_component(
         label = comp[0]
         exp_str = comp[1:3]
         mantissa_str = comp[4:]  # Skip 'F'
-        
+
         exponent = int(exp_str) - 10  # Reverse the offset
-        mantissa = float(mantissa_str.replace('d', '.'))
+        mantissa = float(mantissa_str.replace("d", "."))
 
         value = mantissa * pow(10, exponent)
 
         match label:
-            case 'M':
-                return ('mass', value)
-            case 'Z':
-                return ('metallicity', value)
-            case 'O':
-                return ('angular_velocity', value)
-            case 'Y':
-                return ('initial_helium_abundance', value)
+            case "M":
+                return ("mass", value)
+            case "Z":
+                return ("metallicity", value)
+            case "O":
+                return ("angular_velocity", value)
+            case "Y":
+                return ("initial_helium_abundance", value)
             case _:
                 if is_upper_single_char(label):
                     logger.info(f"Other label {label} provided.")
                     return (label, value)
                 else:
-                    raise ValueError(f"Unrecognized label {label} in component {comp}, must be single uppercase letter.")
+                    raise ValueError(
+                        f"Unrecognized label {label} in component {comp}, must be single uppercase letter."
+                    )
     except Exception as e:
         raise ValueError(f"Error parsing component {comp}: {e}")
+
 
 def parse_name(name: str) -> dict:
     """Parse a filename generated by `generate_name` back into its components.
 
     Returns a dictionary with keys 'mass', 'metallicity', 'angular_velocity', 'helium_abundance'.
     """
-    components = name.split('_')
+    components = name.split("_")
     result = {}
     for comp in components:
         label, value = _parse_single_component(comp)
