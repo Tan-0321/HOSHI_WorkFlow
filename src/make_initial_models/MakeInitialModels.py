@@ -17,7 +17,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict, Union
 
-import FileNameConvention as fnc
+import file_name_convention as fnc
 import numpy as np
 
 logger = logging.getLogger(__name__)
