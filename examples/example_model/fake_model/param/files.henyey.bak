@@ -6,7 +6,7 @@
  * * *
  e			:   NAME_IN
  e			:   NAME_OUT=NBEGIN
- 10000			:   NSTG_max
+ 1234			:   NSTG_max
  1.d10	2			:   MAXQTY, 0:time 1:tmp 2:den 3:Xp 4:Xa 5:XC 6:XO
  1			:   1-reduce D and 7Li when the new input model is made.
  1.0000000000000004e-05			:   new relative metallicity
