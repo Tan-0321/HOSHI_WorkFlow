@@ -90,9 +90,7 @@ LOGGING_ENABLED = True
 
 class HoshiModelDir:
     """Represents a HOSHI model directory containing an `evol` executable.
-    
     """
-
     DIR = None
     PROGRAM_EXEC = None
     henyey_params = None
@@ -191,75 +189,176 @@ class HoshiModelDir:
         #     params['MAXQTY'] = (parts[0], parts[1])
         return params
 
-    def modify_input_henyey(
-        self, new_params: Dict[str, str], *, dry_run: bool = False, backup: bool = True
-    ) -> None:
+    def modify_input_henyey(self, new_params: Dict[str, str], *, dry_run: bool = False, backup: bool = True) -> None:
         """Modify `param/files.henyey` using `new_params`.
 
         Matches parameters positionally: non-empty non-comment lines are
         assigned in order to known keys (same behavior as original code).
+
+        This function does NOT mutate `new_params` and supports `dry_run`
+        (no write) and `backup` (create `.bak` before replacing).
         """
         input_file = self.DIR / "param" / "files.henyey"
         if not input_file.exists():
             raise FileNotFoundError(f"Input file not found: {input_file}")
 
-        with open(input_file, "r") as f:
-            lines = f.readlines()
+        # validate provided keys (but work on a local copy so we don't
+        # mutate the caller's dict). We'll pop from `pending` as we apply
+        # replacements and check at the end that all requested keys were
+        # actually applied to the file.
+        for key in new_params.keys():
+            if key not in self.henyey_params:
+                raise KeyError(
+                    f"Key '{key}' not found in Henyey parameters. Available keys: {list(self.henyey_params.keys())}"
+                )
 
-        cleaned = []
-        for line in lines:
-            s = line.strip()
-            if s and not (s.startswith("*") or s.startswith("#")):
-                cleaned.append(s.split(":", 1)[0].strip())
-
-        keys = [
-            "input_structure_dir",
-            "output_summary_dir",
-            "input_structure_file",
-            "output_structure_file",
-            "NAME_IN",
-            "NAME_OUT",
-            "NSTG_max",
-            "MAXQTY",
-            "FLAG_reduce_D_and_Li",
-            "relative_metallicity",
-            "FLAG_change_mass",
-            "new_mass",
-        ]
-
-        updated = {}
-        for i, key in enumerate(keys):
-            old = None
-            if i < len(cleaned):
-                old = cleaned[i]
-            updated[key] = new_params.get(key, old)
-
-        # Compose new file contents by walking original lines and replacing
-        # the positional parameters while preserving comments and structure.
+        pending = new_params.copy()
+        keys_prev = list(self.henyey_params.keys())
         out_lines = []
-        data_idx = 0
-        for line in lines:
-            s = line.strip()
-            if s and not (s.startswith("*") or s.startswith("#")):
-                key = keys[data_idx]
-                val = updated.get(key, "")
-                out_lines.append(f"{val}\n")
-                data_idx += 1
+        idx = 0
+
+        text = input_file.read_text(encoding="utf-8")
+        for raw_line in text.splitlines():
+            line = raw_line.rstrip("\n")
+            stripped = line.strip()
+            if stripped and not (stripped.startswith("*") or stripped.startswith("#")):
+                # split into left (value) and right (comment) on the first ':'
+                if ":" in line:
+                    left, right = line.split(":", 1)
+                    comment = ":" + right
+                else:
+                    left = line
+                    comment = ""
+
+                if idx < len(keys_prev):
+                    key = keys_prev[idx]
+                    idx += 1
+                    # use pending (a local copy) and pop when we consume a key
+                    if key in pending:
+                        new_val = str(pending.pop(key))
+                        # preserve leading whitespace from the original left-hand side
+                        leading_ws = left[: len(left) - len(left.lstrip())]
+                        new_line = f"{leading_ws}{new_val}\t\t\t{comment}".rstrip()
+                        logger.debug("Replacing key %s -> %s", key, new_val)
+                        out_lines.append(new_line)
+                        continue
+                out_lines.append(line)
             else:
                 out_lines.append(line)
 
-        if backup:
-            backup_file = input_file.with_suffix(input_file.suffix + ".bak")
-            shutil.copy2(input_file, backup_file)
-            logger.debug("Backed up %s to %s", input_file, backup_file)
+        new_content = "\n".join(out_lines) + "\n"
 
         if dry_run:
-            logger.info("Dry run: new file would be:\n%s", "".join(out_lines))
+            logger.info("Dry run: new content prepared for %s", input_file)
             return
 
-        # Write atomically
-        fd, tmp_path = tempfile.mkstemp(dir=str(input_file.parent))
-        with open(fd, "w") as f:
-            f.writelines(out_lines)
-        shutil.move(tmp_path, input_file)
-        logger.info("Updated %s", input_file)
+        # create a backup if requested
+        if backup:
+            bak_path = input_file.with_suffix(input_file.suffix + ".bak")
+            shutil.copy2(input_file, bak_path)
+            logger.info("Backup created: %s", bak_path)
+
+        # atomic write: create temp file in same dir then replace
+        tmp_dir = str(input_file.parent)
+        with tempfile.NamedTemporaryFile("w", delete=False, dir=tmp_dir, encoding="utf-8") as tf:
+            tf.write(new_content)
+            tmp_path = Path(tf.name)
+
+        tmp_path.replace(input_file)
+        logger.info("Updated Henyey file written: %s", input_file)
+        # If any pending keys remain, they could not be applied because the
+        # file contains fewer variable lines than expected. Report this to
+        # the caller so they can adjust inputs or the files.henyey layout.
+        if pending:
+            missing = list(pending.keys())
+            logger.warning("Some new_params were not applied (no matching lines): %s", missing)
+            raise KeyError(f"The following parameters were not applied: {missing}")
+
+        self.henyey_params = self._read_henyey_params()
+        return None
+    
+    def fake_run(self) -> None:
+        logger.info("Running fake simulation with current parameters:\n %s", self.henyey_params)
+        mass = self.henyey_params.get('new_mass').replace('d', 'e') 
+        z_rel = self.henyey_params.get('relative_metallicity').replace('d', 'e')
+        new_name = generate_name(
+            mass=float(mass) if mass is not None else None,
+            metallicity=float(z_rel) if z_rel is not None else None,
+        ) + ".fake"
+        with open(self.DIR / "strdata" / new_name, "a") as f:
+            f.write(f"Fake simulation with mass={mass}, relative_metallicity={z_rel}, output name={new_name}\n")
+        return 0
+        
+    def make_initial_model(
+        self, 
+        initial_structure_file: str,
+        target_relative_metallicity: float,
+        target_mass: float,
+        dry_run: bool = False,
+        ) -> None:
+        input_structure_file = str(initial_structure_file).strip()
+        if self.henyey_params['input_structure_file'] != input_structure_file:
+            logger.info("Updating input_structure_file to %s", input_structure_file)
+        val_dict = parse_name(input_structure_file)
+        mass = val_dict.get('mass')
+        z_rel = val_dict.get('metallicity')
+        if mass is None or z_rel is None:
+            raise ValueError(f"Could not parse mass or metallicity from filename {input_structure_file}")
+        mass = float(mass)
+        z_rel = float(z_rel)
+        loop_num = np.log10(abs(max(target_relative_metallicity, 1e-5) / z_rel))
+        if int(loop_num) == loop_num:
+            extra_loop = 0
+        else:
+            extra_loop = 1
+        if target_relative_metallicity < 1e-5:
+            extra_loop += 1
+        loop_num = int(abs(loop_num)) + extra_loop
+        
+        self.modify_input_henyey({
+            'FLAG_change_mass': '1',
+            'new_mass': str(target_mass),
+            })
+        if self.henyey_params['NAME_OUT'] != 'e':
+            self.modify_input_henyey({
+                'NAME_OUT': 'e',
+                })
+        
+        present_z_rel = z_rel
+        present_input_structure_file = input_structure_file
+        while  loop_num > 0:
+            logger.info("Making initial model, %d loops left...", loop_num)
+            if loop_num == 1:
+                new_z_rel = target_relative_metallicity
+            else:
+                new_z_rel = present_z_rel * np.power(10, np.sign(target_relative_metallicity - present_z_rel)) 
+            present_z_rel = new_z_rel
+            loop_num -= 1
+
+            output_structure_file = generate_name(
+                mass=target_mass,
+                metallicity=new_z_rel,
+            )
+            self.modify_input_henyey({
+                'input_structure_file': present_input_structure_file,
+                'output_structure_file': output_structure_file,
+                'relative_metallicity': str(new_z_rel),
+            })
+
+            if not dry_run:
+                exit_code = self.run()
+                if exit_code != 0:
+                    logger.error(
+                        "Faile to make input initial structure data with parameters: mass = %d, Z_rel = %d ", 
+                        target_mass, new_z_rel         
+                    )
+            else:
+                exit_code = self.fake_run()
+                if exit_code != 0:
+                    logger.error("Failed to make initial structure data in dry run mode.")
+            present_input_structure_file = output_structure_file
+        
+        logger.info("\n ** Initial model created: %s ** \n", present_input_structure_file)
+            
+        return None
+        
