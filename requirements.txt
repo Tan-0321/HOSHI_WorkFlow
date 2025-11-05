@@ -1,0 +1,8 @@
+# requirements.txt — generated minimal pinned runtime dependencies
+# These are minimal versions chosen to be compatible with Python >=3.10
+# If you prefer looser or differently pinned versions, edit this file.
+
+numpy>=1.23
+pandas>=1.5
+matplotlib>=3.6
+scipy>=1.8
