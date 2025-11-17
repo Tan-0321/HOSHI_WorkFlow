@@ -12,6 +12,7 @@ import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
 import numpy as np
 import pandas as pd
+from pandas.api.types import is_integer_dtype, is_float_dtype
 
 # Constants
 G_GRAV = 6.67428e-8  # in cm^3/g/s^2
@@ -201,28 +202,105 @@ class HoshiHistory(HoshiModel):
             keep_default_na=True,
         )
 
+        # Attempt to convert columns to numeric types where possible
         for col in df.columns:
+            # assign specific int columns
+            int_cols = ['stg', 'jcma', 'nmlo', 'ndv']
+            
             col_series = df[col]
             non_empty_mask = col_series.notna() & (col_series.str.strip() != "")
             if not non_empty_mask.any():
                 continue
 
             converted = pd.to_numeric(col_series, errors="coerce")
-
+            # If conversion successful for all non-empty entries, assign converted type
             if not converted[non_empty_mask].isna().any():
                 try:
-                    if dtype in (float, "float", "float64"):
-                        df[col] = converted.astype(float)
-                    elif dtype in (int, "int", "int64"):
-                        df[col] = converted.astype("Int64")
+                    if col in int_cols:
+                        df[col] = converted.astype("int64")
                     else:
-                        df[col] = converted
+                        if dtype in (float, "float", "float64"):
+                            df[col] = converted.astype(float)
+                        elif dtype in (int, "int", "int64"):
+                            df[col] = converted.astype("int64")
+                        else:
+                            df[col] = converted
                 except Exception:
                     df[col] = converted
             else:
-                df[col] = col_series.astype(str).str.strip()
-
+                # Fallback to string with stripped whitespace
+                df[col] = col_series.astype(str).str.strip()             
         return df
+    
+    def _generate_combined_data(
+        self,
+        save_flag: bool = False,
+        ) -> pd.DataFrame:
+        
+        idx_run = self.count_runs()
+        df_combined = self.read_run(idx_run)
+        stg = df_combined['stg'].to_numpy(dtype=int)
+        end_idx = stg[0] - 1
+        logging.info(f"End index of the last run: {end_idx}")
+
+        while idx_run > 0:
+            idx_run -= 1
+            df = self.read_run(idx_run)
+            stg = df['stg'].to_numpy(dtype=int)
+            if not end_idx in stg:
+                logging.warning(f"End index {end_idx} not found in run {idx_run}, skipping it.")
+                continue
+            else:
+                logging.info(f"Found end index {end_idx} in run {idx_run}.")
+                cut_idx = np.where(stg == end_idx)[0][0]
+                df_cut = df.iloc[:cut_idx+2]
+                df_combined = pd.concat([df_cut, df_combined], ignore_index=True)
+                logging.info(f"Combined DataFrame now has {len(df_combined)} rows.")
+                stg_list = df_combined['stg'].to_numpy(dtype=int)
+                if stg_list[0] == 1:
+                    logging.info("Reached the beginning of the data.")
+                    break
+                else:
+                    end_idx = stg_list[0] - 1
+                
+        check_list = np.arange(stg_list[0], stg_list[-1]+1, dtype=int)
+        missing_stages = set(check_list) - set(stg_list)
+        if missing_stages:
+            logging.warning(f"Missing stages: {sorted(missing_stages)}")
+        else:
+            logging.info(f"No missing stages, data is continuous from {stg_list[0]} to {stg_list[-1]}.")
+        
+        if save_flag:
+            save_path = self.path.parent / "summary_combined.txt"
+            
+            fmt_list = []
+            header_fmt_list = []
+            # Determine format for each column based on its dtype
+            for c in df_combined.columns:
+                col = df_combined[c]
+                if is_integer_dtype(col.dtype):
+                    fmt_list.append('%7d')
+                    header_fmt_list.append('%7s')
+                    df_combined[c] = col.astype('int64')
+                elif is_float_dtype(col.dtype):
+                    fmt_list.append('%15.6e')
+                    header_fmt_list.append('%15s')
+                    df_combined[c] = col.astype('float64')
+                else:
+                    fmt_list.append('%s')
+                    header_fmt_list.append('%s')
+                    df_combined[c] = col.astype(str)
+            
+            header_line = ' '.join(fmt % name for fmt, name in zip(header_fmt_list, df_combined.columns))
+
+            with open(save_path, "w") as f:
+                f.write(header_line + "\n")
+                np.savetxt(f, df_combined.to_numpy(), fmt=fmt_list)
+                    
+            logging.info(f"Combined data saved to {save_path}")
+        
+        return df_combined
+        
 
     def data(self, var_name: str, dtype=float) -> np.ndarray:
         if var_name not in self.var_names:
