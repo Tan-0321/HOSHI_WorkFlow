@@ -7,6 +7,6 @@ This lets users import the classes with either:
 The implementation lives in `hoshi_workflow.hoshi_reader.hoshi_reader`.
 """
 
-from .hoshi_reader import HoshiHistory, HoshiProfile, HoshiModel  # noqa: F401
+from .hoshi_reader import HoshiModel, HoshiHistory, HoshiHistoryCombined, HoshiProfile  # noqa: F401
 
-__all__ = ["HoshiModel", "HoshiHistory", "HoshiProfile"]
+__all__ = ["HoshiModel", "HoshiHistory", "HoshiHistoryCombined", "HoshiProfile"]

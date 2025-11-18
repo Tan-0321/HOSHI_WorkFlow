@@ -12,7 +12,7 @@ import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
 import numpy as np
 import pandas as pd
-from pandas.api.types import is_integer_dtype, is_float_dtype
+from pandas.api.types import is_integer_dtype, is_float_dtype, is_string_dtype
 
 # Constants
 G_GRAV = 6.67428e-8  # in cm^3/g/s^2
@@ -94,7 +94,7 @@ class HoshiModel:
 class HoshiHistory(HoshiModel):
     var_names = []
 
-    def __init__(self, path):
+    def __init__(self, path: str | Path):
         p = Path(path)
         if p.is_dir():
             if str(path).endswith("summary") or p.name == "summary":
@@ -122,6 +122,60 @@ class HoshiHistory(HoshiModel):
         variable_names = cleaned_header.split()
 
         return variable_names
+
+# ...existing code...
+    def _coerce_dtypes(self, df: pd.DataFrame, dtype=float, min_convert_frac: float = 0.99) -> pd.DataFrame:
+        """
+        将读取到的 DataFrame 列转换为合适的数值/字符串类型，并作为类内部可复用方法。
+        - 清洗：strip、去千分位逗号、把常见占位符视为缺失。
+        - 如果非空条目中 >= min_convert_frac 可以转为数值，则把列转换为数值（其余置为 NaN）。
+        - 对指定的 int 列使用 pandas 可空整型 Int64（如果存在 NaN）。
+        """
+        int_cols = ['stg', 'jcma', 'nmlo', 'ndv']
+        # 常见占位符映射为缺失
+        missing_vals = {"": np.nan, "NaN": np.nan, "nan": np.nan, "---": np.nan, "NA": np.nan, "N/A": np.nan}
+
+        for col in df.columns:
+            s = df[col]
+
+            # 统一为字符串再清洗（安全），但保留原有 NA 为 np.nan
+            s_clean = s.astype(str).str.strip()
+            # 把像 "nan"、""、"---" 等视为缺失
+            s_clean = s_clean.replace(missing_vals)
+            # 去掉千分位逗号
+            s_clean = s_clean.str.replace(",", "", regex=True)
+
+            # 标记非空条目（清洗后）
+            non_empty_mask = s_clean.notna()
+            n_non_empty = int(non_empty_mask.sum())
+            if n_non_empty == 0:
+                # 全为空，设为全 NaN（float 类型）
+                df[col] = pd.Series([np.nan] * len(df), index=df.index)
+                continue
+
+            converted = pd.to_numeric(s_clean, errors="coerce")
+            n_converted = int((~converted[non_empty_mask].isna()).sum())
+            frac = n_converted / n_non_empty
+
+            if frac >= min_convert_frac:
+                # 接受数值列（其余为 NaN）
+                if col in int_cols:
+                    # 如果存在 NaN，使用可空 Int64；否则用 int64
+                    if converted.isna().any():
+                        df[col] = converted.astype("Int64")
+                    else:
+                        df[col] = converted.astype("int64")
+                else:
+                    # 根据 dtype 参数选择 float 或 int
+                    if dtype in (int, "int", "int64") and not converted.isna().any():
+                        df[col] = converted.astype("int64")
+                    else:
+                        df[col] = converted.astype("float64")
+            else:
+                # 不满足转换比例，保留清洗后的字符串（空值设为 "" 保持 object）
+                df[col] = s_clean.where(s_clean.notna(), "")
+        return df
+# ...existing code...
 
     def _find_run_headers(self) -> list:
         headers = []
@@ -192,7 +246,8 @@ class HoshiHistory(HoshiModel):
         df = pd.read_csv(
             self.path,
             comment="#",
-            delim_whitespace=True,
+            sep=r"\s+",
+            engine="python",
             header=None,
             names=var_names,
             skiprows=data_start,
@@ -202,34 +257,7 @@ class HoshiHistory(HoshiModel):
             keep_default_na=True,
         )
 
-        # Attempt to convert columns to numeric types where possible
-        for col in df.columns:
-            # assign specific int columns
-            int_cols = ['stg', 'jcma', 'nmlo', 'ndv']
-            
-            col_series = df[col]
-            non_empty_mask = col_series.notna() & (col_series.str.strip() != "")
-            if not non_empty_mask.any():
-                continue
-
-            converted = pd.to_numeric(col_series, errors="coerce")
-            # If conversion successful for all non-empty entries, assign converted type
-            if not converted[non_empty_mask].isna().any():
-                try:
-                    if col in int_cols:
-                        df[col] = converted.astype("int64")
-                    else:
-                        if dtype in (float, "float", "float64"):
-                            df[col] = converted.astype(float)
-                        elif dtype in (int, "int", "int64"):
-                            df[col] = converted.astype("int64")
-                        else:
-                            df[col] = converted
-                except Exception:
-                    df[col] = converted
-            else:
-                # Fallback to string with stripped whitespace
-                df[col] = col_series.astype(str).str.strip()             
+        df = self._coerce_dtypes(df, dtype=dtype)
         return df
     
     def _generate_combined_data(
@@ -299,29 +327,76 @@ class HoshiHistory(HoshiModel):
                     
             logging.info(f"Combined data saved to {save_path}")
         
-        return df_combined
+        return self._coerce_dtypes(df_combined, dtype=float)
         
 
+class HoshiHistoryCombined(HoshiHistory):
+    def __init__(
+        self, 
+        path: str | Path, 
+        save_flag: bool = False,
+        quick: bool = False,
+        ):
+        super().__init__(path)
+        new_path = self.path.parent / "summary_combined.txt"
+        self.quick_mode = quick
+        self.path = new_path
+        if not new_path.exists():
+            if save_flag:
+                logging.info("Generating combined summary data and saving to file.")
+                
+            self.dataframe = self._generate_combined_data(save_flag=save_flag)
+        else:
+            if not quick:
+                logging.info("Loading existing combined summary data from file.")
+                self.dataframe = pd.read_csv(
+                    self.path,
+                    comment="#",
+                    sep=r"\s+",
+                    engine="python",
+                    header=0,
+                    names=self.var_names,
+                    dtype=str,
+                    na_values=["", "NaN", "nan"],
+                    keep_default_na=True,
+                )
+                self.dataframe = self._coerce_dtypes(self.dataframe, dtype=float)
+            else:
+                logging.info("Quick mode: skipping loading of combined summary data. To access data, use data() method which reads from file directly.")
+                self.dataframe = None
+        
     def data(self, var_name: str, dtype=float) -> np.ndarray:
         if var_name not in self.var_names:
-            logging.error(f"Variable name '{var_name}' not found in the file.")
+            logging.error(f"Variable name '{var_name}' not found in the combined data.")
             return np.array([])
-
-        col_index = self.var_names.index(var_name)
-
-        df = pd.read_csv(
-            self.path,
-            comment="#",
-            delim_whitespace=True,
-            header=None,
-            usecols=[col_index],
-            dtype=dtype,
-        )
-        return df.iloc[:, 0].values
+        
+        if self.quick_mode or self.dataframe is None:
+            df = pd.read_csv(
+                self.path, 
+                sep=r'\s+', 
+                engine="python",
+                header=0, 
+                usecols=[var_name], 
+                dtype=dtype
+            )
+            return df[var_name].values
+        else:
+            col_data = self.dataframe[var_name]
+            if dtype in (float, "float", "float64"):
+                return col_data.astype(float).to_numpy()
+            elif dtype in (int, "int", "int64"):
+                return col_data.astype(int).to_numpy()
+            else:
+                return col_data.to_numpy()
 
 
 class HoshiProfile(HoshiModel):
-    def __init__(self, path: str, str_num: int):
+    def __init__(
+        self, 
+        path: str, 
+        str_num: int,
+        quick: bool = False,
+        ):
         p = Path(path)
         target = f"str{str_num:05d}.txt"
         if p.is_file() and str(path).endswith(target):
@@ -337,6 +412,23 @@ class HoshiProfile(HoshiModel):
             return
 
         self.var_names = self._get_var_names()
+        self.quick_mode = quick
+        if not quick:
+            self.dataframe = pd.read_csv(
+                self.path,
+                comment="#",
+                sep=r"\s+",
+                engine="python",
+                header=0,
+                names=self.var_names,
+                dtype=str,
+                na_values=["", "NaN", "nan"],
+                keep_default_na=True,
+            )
+        else:
+            self.dataframe = None
+            logging.info("Quick mode: skipping loading of profile data. To access data, use data() method which reads from file directly.")
+            return
 
     def _get_var_names(self) -> list:
         with open(self.path, "r") as file:
@@ -355,15 +447,22 @@ class HoshiProfile(HoshiModel):
             logging.error(f"Variable name '{var_name}' not found in the file.")
             return np.array([])
 
-        col_index = self.var_names.index(var_name)
+        if self.quick_mode or self.dataframe is None:
+            df = pd.read_csv(
+                self.path, 
+                sep=r'\s+', 
+                engine="python",
+                header=0, 
+                usecols=[var_name], 
+                dtype=dtype
+            )
+            return df[var_name].values
+        else:
+            col_data = self.dataframe[var_name]
+            if dtype in (float, "float", "float64"):
+                return col_data.astype(float).to_numpy()
+            elif dtype in (int, "int", "int64"):
+                return col_data.astype(int).to_numpy()
+            else:
+                return col_data.to_numpy()
 
-        df = pd.read_csv(
-            self.path,
-            comment="#",
-            delim_whitespace=True,
-            header=None,
-            usecols=[col_index],
-            skiprows=2,
-            dtype=dtype,
-        )
-        return df.iloc[:, 0].values
