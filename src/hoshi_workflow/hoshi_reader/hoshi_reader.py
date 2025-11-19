@@ -267,11 +267,12 @@ class HoshiHistory(HoshiModel):
         
         idx_run = self.count_runs()
         df_combined = self.read_run(idx_run)
-        stg = df_combined['stg'].to_numpy(dtype=int)
-        end_idx = stg[0] - 1
+        stg_list = df_combined['stg'].to_numpy(dtype=int)
+        end_idx = stg_list[0] - 1
         logging.info(f"End index of the last run: {end_idx}")
 
-        while idx_run > 0:
+        idx_run -= 1
+        while idx_run > 0 and end_idx > 0:
             idx_run -= 1
             df = self.read_run(idx_run)
             stg = df['stg'].to_numpy(dtype=int)
@@ -290,6 +291,8 @@ class HoshiHistory(HoshiModel):
                     break
                 else:
                     end_idx = stg_list[0] - 1
+        if idx_run == 0:
+            logging.info(f"Processed all runs. The beginning of the combined data is stg {stg_list[0]}.")
                 
         check_list = np.arange(stg_list[0], stg_list[-1]+1, dtype=int)
         missing_stages = set(check_list) - set(stg_list)
