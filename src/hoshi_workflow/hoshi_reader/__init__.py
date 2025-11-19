@@ -7,6 +7,26 @@ This lets users import the classes with either:
 The implementation lives in `hoshi_workflow.hoshi_reader.hoshi_reader`.
 """
 
-from .hoshi_reader import HoshiModel, HoshiHistory, HoshiHistoryCombined, HoshiProfile  # noqa: F401
+from .hoshi_reader import (
+    HoshiModel,
+    HoshiHistory,
+    HoshiHistoryCombined,
+    HoshiProfile,
+    # some search functions
+    find_nearest,
+    find_all_within,
+    find_first_greater,
+    find_first_less,
 
-__all__ = ["HoshiModel", "HoshiHistory", "HoshiHistoryCombined", "HoshiProfile"]
+)  # noqa: F401
+
+__all__ = [
+    "HoshiModel",
+    "HoshiHistory",
+    "HoshiHistoryCombined",
+    "HoshiProfile",
+    "find_nearest",
+    "find_all_within",
+    "find_first_greater",
+    "find_first_less",
+]

@@ -76,6 +76,156 @@ def set_plot_ytickers(
     ax.yaxis.set_major_locator(ticker.MultipleLocator(y_interval))
     ax.yaxis.set_minor_locator(ticker.AutoMinorLocator(y_minorTicks_num))
 
+def find_nearest(arr: np.ndarray, x: float, *, descending: bool = False) -> tuple[np.ndarray, np.ndarray]:
+    """Return the index and value nearest to ``x`` in ``arr``.
+
+    Simpler, unified API: always returns ``(indices, values)`` where both are numpy arrays.
+    For a single nearest element the returned arrays have length 1. The function expects the
+    input to be sorted (ascending by default). Set ``descending=True`` for descending arrays.
+
+    Args:
+        arr: 1-D array-like sorted array.
+        x: Target value.
+        descending: If True, treat ``arr`` as sorted in descending order.
+
+    Raises:
+        ValueError: if ``arr`` is empty or no index can be determined.
+    """
+    a = np.asarray(arr)
+    if a.size == 0:
+        raise ValueError("find_nearest: empty input array")
+
+    if descending:
+        a_proc = a[::-1]
+        pos = np.searchsorted(a_proc, x, side="left")
+        candidates = []
+        if pos - 1 >= 0:
+            candidates.append(pos - 1)
+        if pos < a_proc.size:
+            candidates.append(pos)
+        if not candidates:
+            raise ValueError("find_nearest: index not found")
+        best = min(candidates, key=lambda i: abs(a_proc[i] - x))
+        idx = int(a.size - 1 - best)
+        return np.array([idx], dtype=int), np.array([float(a[idx])], dtype=float)
+    else:
+        pos = np.searchsorted(a, x, side="left")
+        candidates = []
+        if pos - 1 >= 0:
+            candidates.append(pos - 1)
+        if pos < a.size:
+            candidates.append(pos)
+        if not candidates:
+            raise ValueError("find_nearest: index not found")
+        best = min(candidates, key=lambda i: abs(a[i] - x))
+        idx = int(best)
+        return np.array([idx], dtype=int), np.array([float(a[idx])], dtype=float)
+
+
+def find_all_within(arr: np.ndarray, x: float, *, tol: float = 1e-3, descending: bool = False) -> tuple[np.ndarray, np.ndarray]:
+    """Return all indices and values within ``tol`` of ``x``.
+
+    Returns ``(indices, values)``. Indices are ordered according to the array direction: for
+    ascending arrays indices increase, for descending arrays they decrease.
+
+    Args:
+        arr: 1-D array-like.
+        x: Target value.
+        tol: Absolute tolerance.
+        descending: If True, treat ``arr`` as sorted in descending order.
+
+    Raises:
+        ValueError: if input empty or no matches found.
+    """
+    a = np.asarray(arr)
+    if a.size == 0:
+        raise ValueError("find_all_within: empty input array")
+
+    idxs = np.where(np.abs(a - x) <= float(tol))[0]
+    if idxs.size == 0:
+        raise ValueError("find_all_within: index not found")
+
+    if descending:
+        ordered = np.sort(idxs)[::-1]
+    else:
+        ordered = np.sort(idxs)
+
+    return ordered.astype(int), a[ordered]
+
+
+def find_first_greater(arr: np.ndarray, x: float, *, descending: bool = False) -> tuple[np.ndarray, np.ndarray]:
+    """Return the first index and value greater than ``x`` as arrays of length 1.
+
+    Uses ``np.searchsorted`` for efficiency. For descending arrays the index is mapped back to
+    the original array ordering.
+
+    Args:
+        arr: 1-D array-like sorted array.
+        x: Threshold value.
+        descending: If True, treat ``arr`` as sorted descending.
+
+    Raises:
+        ValueError: if input empty or no value greater than ``x`` exists.
+    """
+    a = np.asarray(arr)
+    if a.size == 0:
+        raise ValueError("find_first_greater: empty input array")
+
+    if descending:
+        a_rev = a[::-1]
+        pos = np.searchsorted(a_rev, x, side="right")
+        if pos >= a_rev.size:
+            raise ValueError("find_first_greater: index not found")
+        idx = int(a.size - 1 - pos)
+        return np.array([idx], dtype=int), np.array([float(a[idx])], dtype=float)
+    else:
+        pos = np.searchsorted(a, x, side="right")
+        if pos >= a.size:
+            raise ValueError("find_first_greater: index not found")
+        return np.array([int(pos)], dtype=int), np.array([float(a[pos])], dtype=float)
+
+
+def find_first_less(arr: np.ndarray, x: float, *, descending: bool = True) -> tuple[np.ndarray, np.ndarray]:
+    """Return the first index and value less than ``x``.
+
+    This helper is primarily intended for descending arrays. It reuses
+    ``find_first_greater`` by negating the data: for any array ``a``,
+    ``a[i] < x`` is equivalent to ``(-a)[i] > -x``. For descending arrays
+    negating yields an ascending array so we call ``find_first_greater`` on
+    ``-a`` with ``descending=False`` and map the result back to the original
+    values/indices.
+
+    For ascending arrays the function finds the first element less than ``x``
+    by using ``np.searchsorted`` and returning the element at position
+    ``pos-1`` (if exists).
+
+    Args:
+        arr: 1-D array-like sorted array.
+        x: Threshold value.
+        descending: If True (default), treat ``arr`` as sorted descending.
+
+    Raises:
+        ValueError: if input empty or no value less than ``x`` exists.
+    """
+    a = np.asarray(arr)
+    if a.size == 0:
+        raise ValueError("find_first_less: empty input array")
+
+    if descending:
+        # negate array and target, call existing function on ascending data
+        idxs, _ = find_first_greater(-a, -x, descending=False)
+        if idxs.size == 0:
+            raise ValueError("find_first_less: index not found")
+        return idxs, a[idxs]
+    else:
+        # ascending array: first element less than x is at pos-1
+        pos = np.searchsorted(a, x, side="left")
+        if pos == 0:
+            raise ValueError("find_first_less: index not found")
+        idx = int(pos - 1)
+        return np.array([idx], dtype=int), np.array([float(a[idx])], dtype=float)
+
+
 
 class HoshiModel:
     def __init__(self, work_dir):
