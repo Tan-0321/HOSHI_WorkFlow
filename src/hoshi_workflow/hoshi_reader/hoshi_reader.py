@@ -21,6 +21,96 @@ M_SUN = 1.9891e33  # in g
 L_SUN = 3.839e33  # in erg/
 
 
+def _clean_series_and_cast(s: pd.Series, dtype):
+    """Clean a string Series (remove commas, fix Fortran 'D' exponents and missing 'E')
+    then cast to the requested dtype and return a numpy array.
+
+    This mirrors the cleaning done in `_coerce_dtypes` so single-column reads behave
+    the same as full-DataFrame coercion.
+    """
+    missing_vals = {"": np.nan, "NaN": np.nan, "nan": np.nan, "---": np.nan, "NA": np.nan, "N/A": np.nan}
+
+    s_clean = s.astype(str).str.strip()
+    s_clean = s_clean.replace(missing_vals)
+    s_clean = s_clean.str.replace(",", "", regex=True)
+    s_clean = s_clean.str.replace(r"[dD]", "E", regex=True)
+    s_clean = s_clean.str.replace(
+        r"(?P<mant>[+-]?(?:\d+\.\d*|\d*\.\d+|\d+))(?P<exp>[+-]\d{1,3})$",
+        r"\g<mant>E\g<exp>",
+        regex=True,
+    )
+
+    converted = pd.to_numeric(s_clean, errors="coerce")
+
+    if dtype in (float, "float", "float64"):
+        return converted.astype("float64").to_numpy()
+    elif dtype in (int, "int", "int64"):
+        # Follow _coerce_dtypes behavior: use nullable Int64 if there are NaNs
+        if converted.isna().any():
+            return converted.astype("Int64").to_numpy()
+        else:
+            return converted.astype("int64").to_numpy()
+    else:
+        return s_clean.where(s_clean.notna(), "").to_numpy()
+
+
+def coerce_dtypes(df: pd.DataFrame, dtype=float, min_convert_frac: float = 0.99) -> pd.DataFrame:
+    """Clean and coerce a DataFrame's columns to appropriate dtypes.
+
+    This is the module-level version of the former class method. It applies the same
+    cleaning rules (strip, remove commas, fix 'D' exponents and missing 'E',
+    coerce to numeric) and returns a DataFrame with columns cast to numeric types
+    where the fraction of convertible entries meets ``min_convert_frac``.
+
+    Args:
+        df: DataFrame with raw string columns to coerce.
+        dtype: preferred numeric dtype for floats/ints.
+        min_convert_frac: minimum fraction of non-empty entries that must be
+            convertible to consider the column numeric.
+    """
+    int_cols = ["stg", "jcma", "nmlo", "ndv"]
+    missing_vals = {"": np.nan, "NaN": np.nan, "nan": np.nan, "---": np.nan, "NA": np.nan, "N/A": np.nan}
+
+    df_out = df.copy()
+    for col in df_out.columns:
+        s = df_out[col]
+        s_clean = s.astype(str).str.strip()
+        s_clean = s_clean.replace(missing_vals)
+        s_clean = s_clean.str.replace(",", "", regex=True)
+        s_clean = s_clean.str.replace(r"[dD]", "E", regex=True)
+        s_clean = s_clean.str.replace(
+            r"(?P<mant>[+-]?(?:\d+\.\d*|\d*\.\d+|\d+))(?P<exp>[+-]\d{1,3})$",
+            r"\g<mant>E\g<exp>",
+            regex=True,
+        )
+
+        non_empty_mask = s_clean.notna()
+        n_non_empty = int(non_empty_mask.sum())
+        if n_non_empty == 0:
+            df_out[col] = pd.Series([np.nan] * len(df_out), index=df_out.index)
+            continue
+
+        converted = pd.to_numeric(s_clean, errors="coerce")
+        n_converted = int((~converted[non_empty_mask].isna()).sum())
+        frac = n_converted / n_non_empty
+
+        if frac >= min_convert_frac:
+            if col in int_cols:
+                if converted.isna().any():
+                    df_out[col] = converted.astype("Int64")
+                else:
+                    df_out[col] = converted.astype("int64")
+            else:
+                if dtype in (int, "int", "int64") and not converted.isna().any():
+                    df_out[col] = converted.astype("int64")
+                else:
+                    df_out[col] = converted.astype("float64")
+        else:
+            df_out[col] = s_clean.where(s_clean.notna(), "")
+
+    return df_out
+
+
 def set_plot_xtickers(
     ax: plt.Axes,
     x_interval: float,
@@ -287,50 +377,8 @@ class HoshiHistory(HoshiModel):
         - 如果非空条目中 >= min_convert_frac 可以转为数值，则把列转换为数值（其余置为 NaN）。
         - 对指定的 int 列使用 pandas 可空整型 Int64（如果存在 NaN）。
         """
-        int_cols = ['stg', 'jcma', 'nmlo', 'ndv']
-        # 常见占位符映射为缺失
-        missing_vals = {"": np.nan, "NaN": np.nan, "nan": np.nan, "---": np.nan, "NA": np.nan, "N/A": np.nan}
-
-        for col in df.columns:
-            s = df[col]
-
-            # 统一为字符串再清洗（安全），但保留原有 NA 为 np.nan
-            s_clean = s.astype(str).str.strip()
-            # 把像 "nan"、""、"---" 等视为缺失
-            s_clean = s_clean.replace(missing_vals)
-            # 去掉千分位逗号
-            s_clean = s_clean.str.replace(",", "", regex=True)
-
-            # 标记非空条目（清洗后）
-            non_empty_mask = s_clean.notna()
-            n_non_empty = int(non_empty_mask.sum())
-            if n_non_empty == 0:
-                # 全为空，设为全 NaN（float 类型）
-                df[col] = pd.Series([np.nan] * len(df), index=df.index)
-                continue
-
-            converted = pd.to_numeric(s_clean, errors="coerce")
-            n_converted = int((~converted[non_empty_mask].isna()).sum())
-            frac = n_converted / n_non_empty
-
-            if frac >= min_convert_frac:
-                # 接受数值列（其余为 NaN）
-                if col in int_cols:
-                    # 如果存在 NaN，使用可空 Int64；否则用 int64
-                    if converted.isna().any():
-                        df[col] = converted.astype("Int64")
-                    else:
-                        df[col] = converted.astype("int64")
-                else:
-                    # 根据 dtype 参数选择 float 或 int
-                    if dtype in (int, "int", "int64") and not converted.isna().any():
-                        df[col] = converted.astype("int64")
-                    else:
-                        df[col] = converted.astype("float64")
-            else:
-                # 不满足转换比例，保留清洗后的字符串（空值设为 "" 保持 object）
-                df[col] = s_clean.where(s_clean.notna(), "")
-        return df
+        # Thin wrapper to the module-level coerce_dtypes for backward compatibility
+        return coerce_dtypes(df, dtype=dtype, min_convert_frac=min_convert_frac)
 # ...existing code...
 
     def _find_run_headers(self) -> list:
@@ -531,14 +579,16 @@ class HoshiHistoryCombined(HoshiHistory):
         
         if self.quick_mode or self.dataframe is None:
             df = pd.read_csv(
-                self.data_path, 
-                sep=r'\s+', 
+                self.data_path,
+                sep=r"\s+",
                 engine="python",
-                header=0, 
-                usecols=[var_name], 
-                dtype=dtype
+                header=0,
+                usecols=[var_name],
+                dtype=str,
+                na_values=["", "NaN", "nan"],
+                keep_default_na=True,
             )
-            return df[var_name].values
+            return _clean_series_and_cast(df[var_name], dtype)
         else:
             col_data = self.dataframe[var_name]
             if dtype in (float, "float", "float64"):
@@ -583,7 +633,7 @@ class HoshiProfile(HoshiModel):
         self.var_names = self._get_var_names()
         self.quick_mode = quick
         if not quick:
-            self.dataframe = pd.read_csv(
+            df = pd.read_csv(
                 self.data_path,
                 comment="#",
                 sep=r"\s+",
@@ -594,6 +644,7 @@ class HoshiProfile(HoshiModel):
                 na_values=["", "NaN", "nan"],
                 keep_default_na=True,
             )
+            self.dataframe = coerce_dtypes(df, dtype=float)
         else:
             self.dataframe = None
             logging.info("Quick mode: skipping loading of profile data. To access data, use data() method which reads from file directly.")
@@ -618,14 +669,16 @@ class HoshiProfile(HoshiModel):
 
         if self.quick_mode or self.dataframe is None:
             df = pd.read_csv(
-                self.data_path, 
-                sep=r'\s+', 
+                self.data_path,
+                sep=r"\s+",
                 engine="python",
-                header=0, 
-                usecols=[var_name], 
-                dtype=dtype
+                header=0,
+                usecols=[var_name],
+                dtype=str,
+                na_values=["", "NaN", "nan"],
+                keep_default_na=True,
             )
-            return df[var_name].values
+            return _clean_series_and_cast(df[var_name], dtype)
         else:
             col_data = self.dataframe[var_name]
             if dtype in (float, "float", "float64"):
