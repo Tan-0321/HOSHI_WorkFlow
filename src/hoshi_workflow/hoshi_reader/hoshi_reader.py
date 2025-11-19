@@ -242,26 +242,32 @@ class HoshiModel:
 
 
 class HoshiHistory(HoshiModel):
-    var_names = []
 
     def __init__(self, path: str | Path):
         p = Path(path)
+        # Determine model work directory and data_path, then initialize base
         if p.is_dir():
             if str(path).endswith("summary") or p.name == "summary":
-                self.path = p / "summary.txt"
+                work_dir = p.parent
+                data_path = p / "summary.txt"
             else:
-                self.path = p / "summary" / "summary.txt"
+                work_dir = p
+                data_path = p / "summary" / "summary.txt"
         elif p.is_file() and str(path).endswith("summary.txt"):
-            self.path = p
+            work_dir = p.parent.parent
+            data_path = p
         else:
             raise ValueError(
                 "Invalid path provided. Path should be either a directory or a summary.txt file."
             )
 
+        # initialize HoshiModel to set work_dir, summary_dir, writestr_dir
+        super().__init__(work_dir)
+        self.data_path = data_path
         self.var_names = self._get_var_names()
 
     def _get_var_names(self) -> list:
-        with open(self.path, "r") as file:
+        with open(self.data_path, "r") as file:
             for line in file:
                 if line.startswith("#"):
                     header_line = line
@@ -329,7 +335,7 @@ class HoshiHistory(HoshiModel):
 
     def _find_run_headers(self) -> list:
         headers = []
-        with open(self.path, "r") as f:
+        with open(self.data_path, "r") as f:
             for idx, line in enumerate(f):
                 if line.startswith("#"):
                     headers.append((line.rstrip("\n"), idx))
@@ -344,7 +350,7 @@ class HoshiHistory(HoshiModel):
         if not headers:
             return runs
 
-        with open(self.path, "r") as f:
+        with open(self.data_path, "r") as f:
             all_lines = f.readlines()
         total_lines = len(all_lines)
 
@@ -394,7 +400,7 @@ class HoshiHistory(HoshiModel):
             return pd.DataFrame(columns=var_names)
 
         df = pd.read_csv(
-            self.path,
+            self.data_path,
             comment="#",
             sep=r"\s+",
             engine="python",
@@ -452,7 +458,7 @@ class HoshiHistory(HoshiModel):
             logging.info(f"No missing stages, data is continuous from {stg_list[0]} to {stg_list[-1]}.")
         
         if save_flag:
-            save_path = self.path.parent / "summary_combined.txt"
+            save_path = self.data_path.parent / "summary_combined.txt"
             
             fmt_list = []
             header_fmt_list = []
@@ -491,9 +497,9 @@ class HoshiHistoryCombined(HoshiHistory):
         quick: bool = False,
         ):
         super().__init__(path)
-        new_path = self.path.parent / "summary_combined.txt"
+        new_path = self.data_path.parent / "summary_combined.txt"
         self.quick_mode = quick
-        self.path = new_path
+        self.data_path = new_path
         if not new_path.exists():
             if save_flag:
                 logging.info("Generating combined summary data and saving to file.")
@@ -503,7 +509,7 @@ class HoshiHistoryCombined(HoshiHistory):
             if not quick:
                 logging.info("Loading existing combined summary data from file.")
                 self.dataframe = pd.read_csv(
-                    self.path,
+                    self.data_path,
                     comment="#",
                     sep=r"\s+",
                     engine="python",
@@ -525,7 +531,7 @@ class HoshiHistoryCombined(HoshiHistory):
         
         if self.quick_mode or self.dataframe is None:
             df = pd.read_csv(
-                self.path, 
+                self.data_path, 
                 sep=r'\s+', 
                 engine="python",
                 header=0, 
@@ -552,23 +558,33 @@ class HoshiProfile(HoshiModel):
         ):
         p = Path(path)
         target = f"str{str_num:05d}.txt"
+        # Determine work_dir and profile data_path
         if p.is_file() and str(path).endswith(target):
-            self.path = p
+            # path is the profile file inside work_dir/writestr/strXXXXX.txt
+            work_dir = p.parent.parent
+            data_path = p
         elif str(path).endswith("writestr"):
-            self.path = p / target
+            # path is the writestr directory
+            work_dir = p.parent
+            data_path = p / target
         elif p.is_dir() and (p / "evol").exists():
-            self.path = p / "writestr" / target
+            # path is the model/work directory
+            work_dir = p
+            data_path = p / "writestr" / target
         else:
             logging.error(
                 "Invalid path provided. Path should be either a directory or a profile file."
             )
             return
 
+        # initialize base to set work_dir and related dirs
+        super().__init__(work_dir)
+        self.data_path = data_path
         self.var_names = self._get_var_names()
         self.quick_mode = quick
         if not quick:
             self.dataframe = pd.read_csv(
-                self.path,
+                self.data_path,
                 comment="#",
                 sep=r"\s+",
                 engine="python",
@@ -584,7 +600,7 @@ class HoshiProfile(HoshiModel):
             return
 
     def _get_var_names(self) -> list:
-        with open(self.path, "r") as file:
+        with open(self.data_path, "r") as file:
             for _ in range(2):
                 next(file)
             header_line = next(file)
@@ -602,7 +618,7 @@ class HoshiProfile(HoshiModel):
 
         if self.quick_mode or self.dataframe is None:
             df = pd.read_csv(
-                self.path, 
+                self.data_path, 
                 sep=r'\s+', 
                 engine="python",
                 header=0, 
