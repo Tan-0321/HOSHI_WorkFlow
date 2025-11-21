@@ -24,3 +24,5 @@ def test_hoshi_reader_imports():
     assert hasattr(mod, "HoshiModel")
     # Ensure reader package exposes history/profile classes
     assert hasattr(mod, "HoshiHistory")
+    assert hasattr(mod, "HoshiHistoryCombined")
+    assert hasattr(mod, "HoshiProfile")

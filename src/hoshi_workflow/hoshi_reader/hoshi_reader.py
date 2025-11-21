@@ -12,12 +12,103 @@ import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
 import numpy as np
 import pandas as pd
+from pandas.api.types import is_integer_dtype, is_float_dtype, is_string_dtype
 
 # Constants
 G_GRAV = 6.67428e-8  # in cm^3/g/s^2
 R_SUN = 6.9566e10  # in cm
 M_SUN = 1.9891e33  # in g
 L_SUN = 3.839e33  # in erg/
+
+
+def _clean_series_and_cast(s: pd.Series, dtype):
+    """Clean a string Series (remove commas, fix Fortran 'D' exponents and missing 'E')
+    then cast to the requested dtype and return a numpy array.
+
+    This mirrors the cleaning done in `_coerce_dtypes` so single-column reads behave
+    the same as full-DataFrame coercion.
+    """
+    missing_vals = {"": np.nan, "NaN": np.nan, "nan": np.nan, "---": np.nan, "NA": np.nan, "N/A": np.nan}
+
+    s_clean = s.astype(str).str.strip()
+    s_clean = s_clean.replace(missing_vals)
+    s_clean = s_clean.str.replace(",", "", regex=True)
+    s_clean = s_clean.str.replace(r"[dD]", "E", regex=True)
+    s_clean = s_clean.str.replace(
+        r"(?P<mant>[+-]?(?:\d+\.\d*|\d*\.\d+|\d+))(?P<exp>[+-]\d{1,3})$",
+        r"\g<mant>E\g<exp>",
+        regex=True,
+    )
+
+    converted = pd.to_numeric(s_clean, errors="coerce")
+
+    if dtype in (float, "float", "float64"):
+        return converted.astype("float64").to_numpy()
+    elif dtype in (int, "int", "int64"):
+        # Follow _coerce_dtypes behavior: use nullable Int64 if there are NaNs
+        if converted.isna().any():
+            return converted.astype("Int64").to_numpy()
+        else:
+            return converted.astype("int64").to_numpy()
+    else:
+        return s_clean.where(s_clean.notna(), "").to_numpy()
+
+
+def coerce_dtypes(df: pd.DataFrame, dtype=float, min_convert_frac: float = 0.99) -> pd.DataFrame:
+    """Clean and coerce a DataFrame's columns to appropriate dtypes.
+
+    This is the module-level version of the former class method. It applies the same
+    cleaning rules (strip, remove commas, fix 'D' exponents and missing 'E',
+    coerce to numeric) and returns a DataFrame with columns cast to numeric types
+    where the fraction of convertible entries meets ``min_convert_frac``.
+
+    Args:
+        df: DataFrame with raw string columns to coerce.
+        dtype: preferred numeric dtype for floats/ints.
+        min_convert_frac: minimum fraction of non-empty entries that must be
+            convertible to consider the column numeric.
+    """
+    int_cols = ["stg", "jcma", "nmlo", "ndv"]
+    missing_vals = {"": np.nan, "NaN": np.nan, "nan": np.nan, "---": np.nan, "NA": np.nan, "N/A": np.nan}
+
+    df_out = df.copy()
+    for col in df_out.columns:
+        s = df_out[col]
+        s_clean = s.astype(str).str.strip()
+        s_clean = s_clean.replace(missing_vals)
+        s_clean = s_clean.str.replace(",", "", regex=True)
+        s_clean = s_clean.str.replace(r"[dD]", "E", regex=True)
+        s_clean = s_clean.str.replace(
+            r"(?P<mant>[+-]?(?:\d+\.\d*|\d*\.\d+|\d+))(?P<exp>[+-]\d{1,3})$",
+            r"\g<mant>E\g<exp>",
+            regex=True,
+        )
+
+        non_empty_mask = s_clean.notna()
+        n_non_empty = int(non_empty_mask.sum())
+        if n_non_empty == 0:
+            df_out[col] = pd.Series([np.nan] * len(df_out), index=df_out.index)
+            continue
+
+        converted = pd.to_numeric(s_clean, errors="coerce")
+        n_converted = int((~converted[non_empty_mask].isna()).sum())
+        frac = n_converted / n_non_empty
+
+        if frac >= min_convert_frac:
+            if col in int_cols:
+                if converted.isna().any():
+                    df_out[col] = converted.astype("Int64")
+                else:
+                    df_out[col] = converted.astype("int64")
+            else:
+                if dtype in (int, "int", "int64") and not converted.isna().any():
+                    df_out[col] = converted.astype("int64")
+                else:
+                    df_out[col] = converted.astype("float64")
+        else:
+            df_out[col] = s_clean.where(s_clean.notna(), "")
+
+    return df_out
 
 
 def set_plot_xtickers(
@@ -75,6 +166,156 @@ def set_plot_ytickers(
     ax.yaxis.set_major_locator(ticker.MultipleLocator(y_interval))
     ax.yaxis.set_minor_locator(ticker.AutoMinorLocator(y_minorTicks_num))
 
+def find_nearest(arr: np.ndarray, x: float, *, descending: bool = False) -> tuple[np.ndarray, np.ndarray]:
+    """Return the index and value nearest to ``x`` in ``arr``.
+
+    Simpler, unified API: always returns ``(indices, values)`` where both are numpy arrays.
+    For a single nearest element the returned arrays have length 1. The function expects the
+    input to be sorted (ascending by default). Set ``descending=True`` for descending arrays.
+
+    Args:
+        arr: 1-D array-like sorted array.
+        x: Target value.
+        descending: If True, treat ``arr`` as sorted in descending order.
+
+    Raises:
+        ValueError: if ``arr`` is empty or no index can be determined.
+    """
+    a = np.asarray(arr)
+    if a.size == 0:
+        raise ValueError("find_nearest: empty input array")
+
+    if descending:
+        a_proc = a[::-1]
+        pos = np.searchsorted(a_proc, x, side="left")
+        candidates = []
+        if pos - 1 >= 0:
+            candidates.append(pos - 1)
+        if pos < a_proc.size:
+            candidates.append(pos)
+        if not candidates:
+            raise ValueError("find_nearest: index not found")
+        best = min(candidates, key=lambda i: abs(a_proc[i] - x))
+        idx = int(a.size - 1 - best)
+        return np.array([idx], dtype=int), np.array([float(a[idx])], dtype=float)
+    else:
+        pos = np.searchsorted(a, x, side="left")
+        candidates = []
+        if pos - 1 >= 0:
+            candidates.append(pos - 1)
+        if pos < a.size:
+            candidates.append(pos)
+        if not candidates:
+            raise ValueError("find_nearest: index not found")
+        best = min(candidates, key=lambda i: abs(a[i] - x))
+        idx = int(best)
+        return np.array([idx], dtype=int), np.array([float(a[idx])], dtype=float)
+
+
+def find_all_within(arr: np.ndarray, x: float, *, tol: float = 1e-3, descending: bool = False) -> tuple[np.ndarray, np.ndarray]:
+    """Return all indices and values within ``tol`` of ``x``.
+
+    Returns ``(indices, values)``. Indices are ordered according to the array direction: for
+    ascending arrays indices increase, for descending arrays they decrease.
+
+    Args:
+        arr: 1-D array-like.
+        x: Target value.
+        tol: Absolute tolerance.
+        descending: If True, treat ``arr`` as sorted in descending order.
+
+    Raises:
+        ValueError: if input empty or no matches found.
+    """
+    a = np.asarray(arr)
+    if a.size == 0:
+        raise ValueError("find_all_within: empty input array")
+
+    idxs = np.where(np.abs(a - x) <= float(tol))[0]
+    if idxs.size == 0:
+        raise ValueError("find_all_within: index not found")
+
+    if descending:
+        ordered = np.sort(idxs)[::-1]
+    else:
+        ordered = np.sort(idxs)
+
+    return ordered.astype(int), a[ordered]
+
+
+def find_first_greater(arr: np.ndarray, x: float, *, descending: bool = False) -> tuple[np.ndarray, np.ndarray]:
+    """Return the first index and value greater than ``x`` as arrays of length 1.
+
+    Uses ``np.searchsorted`` for efficiency. For descending arrays the index is mapped back to
+    the original array ordering.
+
+    Args:
+        arr: 1-D array-like sorted array.
+        x: Threshold value.
+        descending: If True, treat ``arr`` as sorted descending.
+
+    Raises:
+        ValueError: if input empty or no value greater than ``x`` exists.
+    """
+    a = np.asarray(arr)
+    if a.size == 0:
+        raise ValueError("find_first_greater: empty input array")
+
+    if descending:
+        a_rev = a[::-1]
+        pos = np.searchsorted(a_rev, x, side="right")
+        if pos >= a_rev.size:
+            raise ValueError("find_first_greater: index not found")
+        idx = int(a.size - 1 - pos)
+        return np.array([idx], dtype=int), np.array([float(a[idx])], dtype=float)
+    else:
+        pos = np.searchsorted(a, x, side="right")
+        if pos >= a.size:
+            raise ValueError("find_first_greater: index not found")
+        return np.array([int(pos)], dtype=int), np.array([float(a[pos])], dtype=float)
+
+
+def find_first_less(arr: np.ndarray, x: float, *, descending: bool = True) -> tuple[np.ndarray, np.ndarray]:
+    """Return the first index and value less than ``x``.
+
+    This helper is primarily intended for descending arrays. It reuses
+    ``find_first_greater`` by negating the data: for any array ``a``,
+    ``a[i] < x`` is equivalent to ``(-a)[i] > -x``. For descending arrays
+    negating yields an ascending array so we call ``find_first_greater`` on
+    ``-a`` with ``descending=False`` and map the result back to the original
+    values/indices.
+
+    For ascending arrays the function finds the first element less than ``x``
+    by using ``np.searchsorted`` and returning the element at position
+    ``pos-1`` (if exists).
+
+    Args:
+        arr: 1-D array-like sorted array.
+        x: Threshold value.
+        descending: If True (default), treat ``arr`` as sorted descending.
+
+    Raises:
+        ValueError: if input empty or no value less than ``x`` exists.
+    """
+    a = np.asarray(arr)
+    if a.size == 0:
+        raise ValueError("find_first_less: empty input array")
+
+    if descending:
+        # negate array and target, call existing function on ascending data
+        idxs, _ = find_first_greater(-a, -x, descending=False)
+        if idxs.size == 0:
+            raise ValueError("find_first_less: index not found")
+        return idxs, a[idxs]
+    else:
+        # ascending array: first element less than x is at pos-1
+        pos = np.searchsorted(a, x, side="left")
+        if pos == 0:
+            raise ValueError("find_first_less: index not found")
+        idx = int(pos - 1)
+        return np.array([idx], dtype=int), np.array([float(a[idx])], dtype=float)
+
+
 
 class HoshiModel:
     def __init__(self, work_dir):
@@ -91,26 +332,32 @@ class HoshiModel:
 
 
 class HoshiHistory(HoshiModel):
-    var_names = []
 
-    def __init__(self, path):
+    def __init__(self, path: str | Path):
         p = Path(path)
+        # Determine model work directory and data_path, then initialize base
         if p.is_dir():
             if str(path).endswith("summary") or p.name == "summary":
-                self.path = p / "summary.txt"
+                work_dir = p.parent
+                data_path = p / "summary.txt"
             else:
-                self.path = p / "summary" / "summary.txt"
+                work_dir = p
+                data_path = p / "summary" / "summary.txt"
         elif p.is_file() and str(path).endswith("summary.txt"):
-            self.path = p
+            work_dir = p.parent.parent
+            data_path = p
         else:
             raise ValueError(
                 "Invalid path provided. Path should be either a directory or a summary.txt file."
             )
 
+        # initialize HoshiModel to set work_dir, summary_dir, writestr_dir
+        super().__init__(work_dir)
+        self.data_path = data_path
         self.var_names = self._get_var_names()
 
     def _get_var_names(self) -> list:
-        with open(self.path, "r") as file:
+        with open(self.data_path, "r") as file:
             for line in file:
                 if line.startswith("#"):
                     header_line = line
@@ -122,9 +369,21 @@ class HoshiHistory(HoshiModel):
 
         return variable_names
 
+# ...existing code...
+    def _coerce_dtypes(self, df: pd.DataFrame, dtype=float, min_convert_frac: float = 0.99) -> pd.DataFrame:
+        """
+        将读取到的 DataFrame 列转换为合适的数值/字符串类型，并作为类内部可复用方法。
+        - 清洗：strip、去千分位逗号、把常见占位符视为缺失。
+        - 如果非空条目中 >= min_convert_frac 可以转为数值，则把列转换为数值（其余置为 NaN）。
+        - 对指定的 int 列使用 pandas 可空整型 Int64（如果存在 NaN）。
+        """
+        # Thin wrapper to the module-level coerce_dtypes for backward compatibility
+        return coerce_dtypes(df, dtype=dtype, min_convert_frac=min_convert_frac)
+# ...existing code...
+
     def _find_run_headers(self) -> list:
         headers = []
-        with open(self.path, "r") as f:
+        with open(self.data_path, "r") as f:
             for idx, line in enumerate(f):
                 if line.startswith("#"):
                     headers.append((line.rstrip("\n"), idx))
@@ -139,7 +398,7 @@ class HoshiHistory(HoshiModel):
         if not headers:
             return runs
 
-        with open(self.path, "r") as f:
+        with open(self.data_path, "r") as f:
             all_lines = f.readlines()
         total_lines = len(all_lines)
 
@@ -189,9 +448,10 @@ class HoshiHistory(HoshiModel):
             return pd.DataFrame(columns=var_names)
 
         df = pd.read_csv(
-            self.path,
+            self.data_path,
             comment="#",
-            delim_whitespace=True,
+            sep=r"\s+",
+            engine="python",
             header=None,
             names=var_names,
             skiprows=data_start,
@@ -201,67 +461,197 @@ class HoshiHistory(HoshiModel):
             keep_default_na=True,
         )
 
-        for col in df.columns:
-            col_series = df[col]
-            non_empty_mask = col_series.notna() & (col_series.str.strip() != "")
-            if not non_empty_mask.any():
-                continue
-
-            converted = pd.to_numeric(col_series, errors="coerce")
-
-            if not converted[non_empty_mask].isna().any():
-                try:
-                    if dtype in (float, "float", "float64"):
-                        df[col] = converted.astype(float)
-                    elif dtype in (int, "int", "int64"):
-                        df[col] = converted.astype("Int64")
-                    else:
-                        df[col] = converted
-                except Exception:
-                    df[col] = converted
-            else:
-                df[col] = col_series.astype(str).str.strip()
-
+        df = self._coerce_dtypes(df, dtype=dtype)
         return df
+    
+    def _generate_combined_data(
+        self,
+        save_flag: bool = False,
+        ) -> pd.DataFrame:
+        
+        idx_run = self.count_runs()
+        df_combined = self.read_run(idx_run)
+        stg_list = df_combined['stg'].to_numpy(dtype=int)
+        end_idx = stg_list[0] - 1
+        logging.info(f"End index of the last run: {end_idx}")
 
+        idx_run -= 1
+        while idx_run > 0 and end_idx > 0:
+            idx_run -= 1
+            df = self.read_run(idx_run)
+            stg = df['stg'].to_numpy(dtype=int)
+            if not end_idx in stg:
+                logging.warning(f"End index {end_idx} not found in run {idx_run}, skipping it.")
+                continue
+            else:
+                logging.info(f"Found end index {end_idx} in run {idx_run}.")
+                cut_idx = np.where(stg == end_idx)[0][0]
+                df_cut = df.iloc[:cut_idx+2]
+                df_combined = pd.concat([df_cut, df_combined], ignore_index=True)
+                logging.info(f"Combined DataFrame now has {len(df_combined)} rows.")
+                stg_list = df_combined['stg'].to_numpy(dtype=int)
+                if stg_list[0] == 1:
+                    logging.info("Reached the beginning of the data.")
+                    break
+                else:
+                    end_idx = stg_list[0] - 1
+        if idx_run == 0:
+            logging.info(f"Processed all runs. The beginning of the combined data is stg {stg_list[0]}.")
+                
+        check_list = np.arange(stg_list[0], stg_list[-1]+1, dtype=int)
+        missing_stages = set(check_list) - set(stg_list)
+        if missing_stages:
+            logging.warning(f"Missing stages: {sorted(missing_stages)}")
+        else:
+            logging.info(f"No missing stages, data is continuous from {stg_list[0]} to {stg_list[-1]}.")
+        
+        if save_flag:
+            save_path = self.data_path.parent / "summary_combined.txt"
+            
+            fmt_list = []
+            header_fmt_list = []
+            # Determine format for each column based on its dtype
+            for c in df_combined.columns:
+                col = df_combined[c]
+                if is_integer_dtype(col.dtype):
+                    fmt_list.append('%7d')
+                    header_fmt_list.append('%7s')
+                    df_combined[c] = col.astype('int64')
+                elif is_float_dtype(col.dtype):
+                    fmt_list.append('%15.6e')
+                    header_fmt_list.append('%15s')
+                    df_combined[c] = col.astype('float64')
+                else:
+                    fmt_list.append('%s')
+                    header_fmt_list.append('%s')
+                    df_combined[c] = col.astype(str)
+            
+            header_line = ' '.join(fmt % name for fmt, name in zip(header_fmt_list, df_combined.columns))
+
+            with open(save_path, "w") as f:
+                f.write(header_line + "\n")
+                np.savetxt(f, df_combined.to_numpy(), fmt=fmt_list)
+                    
+            logging.info(f"Combined data saved to {save_path}")
+        
+        return self._coerce_dtypes(df_combined, dtype=float)
+        
+
+class HoshiHistoryCombined(HoshiHistory):
+    def __init__(
+        self, 
+        path: str | Path, 
+        save_flag: bool = False,
+        quick: bool = False,
+        ):
+        super().__init__(path)
+        new_path = self.data_path.parent / "summary_combined.txt"
+        self.quick_mode = quick
+        self.data_path = new_path
+        if not new_path.exists():
+            if save_flag:
+                logging.info("Generating combined summary data and saving to file.")
+                
+            self.dataframe = self._generate_combined_data(save_flag=save_flag)
+        else:
+            if not quick:
+                logging.info("Loading existing combined summary data from file.")
+                self.dataframe = pd.read_csv(
+                    self.data_path,
+                    comment="#",
+                    sep=r"\s+",
+                    engine="python",
+                    header=0,
+                    names=self.var_names,
+                    dtype=str,
+                    na_values=["", "NaN", "nan"],
+                    keep_default_na=True,
+                )
+                self.dataframe = self._coerce_dtypes(self.dataframe, dtype=float)
+            else:
+                logging.info("Quick mode: skipping loading of combined summary data. To access data, use data() method which reads from file directly.")
+                self.dataframe = None
+        
     def data(self, var_name: str, dtype=float) -> np.ndarray:
         if var_name not in self.var_names:
-            logging.error(f"Variable name '{var_name}' not found in the file.")
+            logging.error(f"Variable name '{var_name}' not found in the combined data.")
             return np.array([])
-
-        col_index = self.var_names.index(var_name)
-
-        df = pd.read_csv(
-            self.path,
-            comment="#",
-            delim_whitespace=True,
-            header=None,
-            usecols=[col_index],
-            dtype=dtype,
-        )
-        return df.iloc[:, 0].values
+        
+        if self.quick_mode or self.dataframe is None:
+            df = pd.read_csv(
+                self.data_path,
+                sep=r"\s+",
+                engine="python",
+                header=0,
+                usecols=[var_name],
+                dtype=str,
+                na_values=["", "NaN", "nan"],
+                keep_default_na=True,
+            )
+            return _clean_series_and_cast(df[var_name], dtype)
+        else:
+            col_data = self.dataframe[var_name]
+            if dtype in (float, "float", "float64"):
+                return col_data.astype(float).to_numpy()
+            elif dtype in (int, "int", "int64"):
+                return col_data.astype(int).to_numpy()
+            else:
+                return col_data.to_numpy()
 
 
 class HoshiProfile(HoshiModel):
-    def __init__(self, path: str, str_num: int):
+    def __init__(
+        self, 
+        path: str, 
+        str_num: int,
+        quick: bool = False,
+        ):
         p = Path(path)
         target = f"str{str_num:05d}.txt"
+        # Determine work_dir and profile data_path
         if p.is_file() and str(path).endswith(target):
-            self.path = p
+            # path is the profile file inside work_dir/writestr/strXXXXX.txt
+            work_dir = p.parent.parent
+            data_path = p
         elif str(path).endswith("writestr"):
-            self.path = p / target
+            # path is the writestr directory
+            work_dir = p.parent
+            data_path = p / target
         elif p.is_dir() and (p / "evol").exists():
-            self.path = p / "writestr" / target
+            # path is the model/work directory
+            work_dir = p
+            data_path = p / "writestr" / target
         else:
             logging.error(
                 "Invalid path provided. Path should be either a directory or a profile file."
             )
             return
 
+        # initialize base to set work_dir and related dirs
+        super().__init__(work_dir)
+        self.data_path = data_path
         self.var_names = self._get_var_names()
+        self.quick_mode = quick
+        if not quick:
+            df = pd.read_csv(
+                self.data_path,
+                comment="#",
+                sep=r"\s+",
+                engine="python",
+                header=0,
+                names=self.var_names,
+                dtype=str,
+                na_values=["", "NaN", "nan"],
+                keep_default_na=True,
+            )
+            self.dataframe = coerce_dtypes(df, dtype=float)
+        else:
+            self.dataframe = None
+            logging.info("Quick mode: skipping loading of profile data. To access data, use data() method which reads from file directly.")
+            return
 
     def _get_var_names(self) -> list:
-        with open(self.path, "r") as file:
+        with open(self.data_path, "r") as file:
             for _ in range(2):
                 next(file)
             header_line = next(file)
@@ -277,15 +667,24 @@ class HoshiProfile(HoshiModel):
             logging.error(f"Variable name '{var_name}' not found in the file.")
             return np.array([])
 
-        col_index = self.var_names.index(var_name)
+        if self.quick_mode or self.dataframe is None:
+            df = pd.read_csv(
+                self.data_path,
+                sep=r"\s+",
+                engine="python",
+                header=0,
+                usecols=[var_name],
+                dtype=str,
+                na_values=["", "NaN", "nan"],
+                keep_default_na=True,
+            )
+            return _clean_series_and_cast(df[var_name], dtype)
+        else:
+            col_data = self.dataframe[var_name]
+            if dtype in (float, "float", "float64"):
+                return col_data.astype(float).to_numpy()
+            elif dtype in (int, "int", "int64"):
+                return col_data.astype(int).to_numpy()
+            else:
+                return col_data.to_numpy()
 
-        df = pd.read_csv(
-            self.path,
-            comment="#",
-            delim_whitespace=True,
-            header=None,
-            usecols=[col_index],
-            skiprows=2,
-            dtype=dtype,
-        )
-        return df.iloc[:, 0].values
