@@ -467,6 +467,7 @@ class HoshiHistory(HoshiModel):
     def _generate_combined_data(
         self,
         save_flag: bool = False,
+        start_stg: int = 1,
         ) -> pd.DataFrame:
         
         idx_run = self.count_runs()
@@ -490,7 +491,7 @@ class HoshiHistory(HoshiModel):
                 df_combined = pd.concat([df_cut, df_combined], ignore_index=True)
                 logging.info(f"Combined DataFrame now has {len(df_combined)} rows.")
                 stg_list = df_combined['stg'].to_numpy(dtype=int)
-                if stg_list[0] == 1:
+                if stg_list[0] == start_stg:
                     logging.info("Reached the beginning of the data.")
                     break
                 else:
@@ -549,10 +550,12 @@ class HoshiHistoryCombined(HoshiHistory):
         self.quick_mode = quick
         self.data_path = new_path
         if not new_path.exists():
-            if save_flag:
-                logging.info("Generating combined summary data and saving to file.")
-                
+            logging.info("Generating combined summary data ...")
+            self.data_path = new_path.parent / "summary.txt"
             self.dataframe = self._generate_combined_data(save_flag=save_flag)
+            if save_flag:
+                self.data_path = new_path
+                logging.info(f"Combined summary data file created at {self.data_path}")
         else:
             if not quick:
                 logging.info("Loading existing combined summary data from file.")
