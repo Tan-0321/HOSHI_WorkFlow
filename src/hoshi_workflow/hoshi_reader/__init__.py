@@ -12,6 +12,7 @@ from .hoshi_reader import (
     HoshiHistory,
     HoshiHistoryCombined,
     HoshiProfile,
+    HoshiNucNetwork,
     # some search functions
     find_nearest,
     find_all_within,
@@ -27,6 +28,7 @@ __all__ = [
     "HoshiHistory",
     "HoshiHistoryCombined",
     "HoshiProfile",
+    "HoshiNucNetwork",
     "find_nearest",
     "find_all_within",
     "find_first_greater",

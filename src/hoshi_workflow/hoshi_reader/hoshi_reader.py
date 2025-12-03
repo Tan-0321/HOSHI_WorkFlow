@@ -770,18 +770,139 @@ class HoshiProfile(HoshiModel):
             else:
                 return col_data.to_numpy()
 
-# class HoshiNucNetwork(HoshiModel):
-#     def __init__(
-#         self,
-#         work_dir: str | Path,
-#         ):
-#         super().__init__(work_dir)
-#         with open(self.work_dir / "param" / "files.data", 'r') as f:
-#             lines = f.readlines()
-#             for line in lines:
-#                 if line
-            
-#         self.network_path = self.work_dir / "nuc_network.txt"
+class HoshiNucNetwork(HoshiModel):
+    def __init__(
+        self,
+        work_dir: str | Path,
+        ):
+        super().__init__(work_dir)
+        p = get_var_from_block(
+            file_path=self.work_dir / "param" / "files.data",
+            target_block_idx=1,
+            target_var_idx=3,
+        )
+        p = Path(p)
+        if not p.is_absolute():
+            p = self.HOSHI_DIR / p
+        if not p.exists():
+            logging.error(f"Nuclear network file not found at {p}")
+            return
+        self.network_path = p
+        # parse network file into a dictionary mapping isotope name -> properties
+        self.nuc_dic = self._parse_network_file()
+        self.nuc_list = list(self.nuc_dic.keys())
+
+    def _parse_network_file(self) -> dict:
+        """Parse the nuclear network file and return a dict of nuclide properties.
+
+        The expected file format (example lines):
+          1  300
+             2     1     n       1.000   0   1   0.5     8.071  awns
+
+        Notes:
+        - The file often contains leading line/index columns; we skip the first 6
+          characters of each line before splitting the meaningful fields.
+        - The first non-empty line gives the total number of nuclides (we attempt
+          to parse it but do not require it to be exact).
+        - For each nuclide line we read: name, mass_number, Z, N, spin, mass_excess, label
+        - Returns a dict keyed by the nuclide name (string) with values being
+          dictionaries containing parsed numeric values.
+        """
+        nuclides = {}
+        try:
+            with open(self.network_path, 'r', encoding='utf-8') as f:
+                lines = f.readlines()
+        except Exception as e:
+            logging.error(f"Failed to read nuclear network file {self.network_path}: {e}")
+            return nuclides
+
+        # find first non-empty line and try to parse total count (optional)
+        total_expected = None
+        for i, line in enumerate(lines):
+            s = line.strip()
+            if not s:
+                continue
+            # skip leading 6 chars if present
+            body = line[6:].strip() if len(line) > 6 else line.strip()
+            if not body:
+                continue
+            parts = body.split()
+            # if first meaningful line contains a single integer, take it as total
+            if total_expected is None:
+                try:
+                    # sometimes the first meaningful token is total count
+                    total_expected = int(parts[0])
+                except Exception:
+                    # fallback: try second token
+                    if len(parts) > 1:
+                        try:
+                            total_expected = int(parts[1])
+                        except Exception:
+                            total_expected = None
+                # continue to parse subsequent lines
+                continue
+
+        # parse nuclide lines
+        for line in lines:
+            if not line.strip():
+                continue
+            body = line[6:].strip() if len(line) > 6 else line.strip()
+            if not body:
+                continue
+            parts = body.split()
+            # skip lines that look like a header containing only a count
+            if len(parts) < 2:
+                continue
+            # If this line is just the total count, skip
+            try:
+                if len(parts) == 1 and int(parts[0]) == total_expected:
+                    continue
+            except Exception:
+                pass
+
+            # Expect at least 7 columns after skipping indices: name, mass, Z, N, spin, mass_excess, label
+            if len(parts) < 7:
+                # not enough columns; skip or warn
+                logging.debug(f"Skipping unparsable network line: '{body}'")
+                continue
+
+            name = parts[0]
+            # mass number may be provided as float-like (e.g. '12.000')
+            try:
+                mass_number = int(float(parts[1]))
+            except Exception:
+                mass_number = None
+            try:
+                Z = int(float(parts[2]))
+            except Exception:
+                Z = None
+            try:
+                N = int(float(parts[3]))
+            except Exception:
+                N = None
+            try:
+                spin = float(parts[4])
+            except Exception:
+                spin = None
+            try:
+                mass_excess = float(parts[5])
+            except Exception:
+                mass_excess = None
+            label = " ".join(parts[6:]) if len(parts) > 6 else ""
+
+            nuclides[name] = {
+                "mass_number": mass_number,
+                "Z": Z,
+                "N": N,
+                "spin": spin,
+                "mass_excess": mass_excess,
+                "label": label,
+            }
+
+        if total_expected is not None and total_expected != len(nuclides):
+            logging.debug(f"Parsed {len(nuclides)} nuclides, expected {total_expected} (from file header)")
+
+        return nuclides
 
 
 # class HoshiCxdata(HoshiModel):
