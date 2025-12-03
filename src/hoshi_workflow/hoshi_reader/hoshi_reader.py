@@ -7,6 +7,7 @@ lowercase with underscore to follow PEP8 module naming.
 from pathlib import Path
 import logging
 import re
+import os
 
 import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
@@ -315,13 +316,89 @@ def find_first_less(arr: np.ndarray, x: float, *, descending: bool = True) -> tu
         idx = int(pos - 1)
         return np.array([idx], dtype=int), np.array([float(a[idx])], dtype=float)
 
+def get_var_from_block(file_path, target_block_idx, target_var_idx):
+    """
+    Parses a multi-block data file to extract a specific variable.
+    
+    The file structure is assumed to be:
+    - Block Header: An integer N indicating the number of following data lines.
+    - Block Body: N lines of data (variables).
+    
+    Comments (starting with #) and empty lines are ignored.
 
+    :param file_path: Path to the input file.
+    :param target_block_idx: The index of the target block (1-based).
+    :param target_var_idx: The index of the variable within the target block (1-based).
+    :return: The string content of the target line, or an error message if not found.
+    """
+    
+    current_block_count = 0  # Counter for the blocks encountered so far
+    lines_left_in_block = 0  # Number of data lines remaining in the current block
+    current_var_count = 0    # Counter for variables within the current block
+    
+    found_target_block = False
+
+    try:
+        with open(file_path, 'r', encoding='utf-8') as f:
+            for line in f:
+                # 1. Data Cleaning: Remove comments (#) and surrounding whitespace
+                content = line.split('#')[0].strip()
+                
+                # 2. Skip empty lines
+                if not content:
+                    continue
+
+                # --- State Machine Logic ---
+                
+                if lines_left_in_block > 0:
+                    # [State A: Reading data within a block]
+                    # Note: Even if 'content' is a number here, it is treated as data, 
+                    # not a new block header.
+                    
+                    if found_target_block:
+                        current_var_count += 1
+                        # Check if this is the requested variable
+                        if current_var_count == target_var_idx:
+                            return content 
+                    
+                    # Decrement the remaining line count for the current block
+                    lines_left_in_block -= 1
+                    
+                else:
+                    # [State B: Searching for a new block Header]
+                    # We expect an integer defining the size of the next block.
+                    
+                    if content.isdigit():
+                        # New block header found
+                        current_block_count += 1
+                        lines_left_in_block = int(content) # Set expected data lines
+                        current_var_count = 0 # Reset variable counter for the new block
+                        
+                        # Check if this is the target block
+                        if current_block_count == target_block_idx:
+                            found_target_block = True
+                            
+                            # Boundary Check: If the block size is smaller than the requested index
+                            if target_var_idx > lines_left_in_block:
+                                return f"Error: Target block has only {lines_left_in_block} lines; cannot fetch line {target_var_idx}."
+                                
+                            # Special Case: Empty block (size 0)
+                            if lines_left_in_block == 0:
+                                found_target_block = False
+
+        return "Target not found (End of file or index out of bounds)"
+
+    except FileNotFoundError:
+        return f"Error: File '{file_path}' not found."
+    except Exception as e:
+        return f"An unexpected error occurred: {e}"
 
 class HoshiModel:
     def __init__(self, work_dir):
         self.work_dir = Path(work_dir)
         self.summary_dir = self.work_dir / "summary"
         self.writestr_dir = self.work_dir / "writestr"
+        self.HOSHI_DIR = os.getenv("HOSHI_DIR")
         self.check_dir()
 
     def check_dir(self):
@@ -329,6 +406,8 @@ class HoshiModel:
             logging.info("No summary directory found")
         if not self.writestr_dir.exists():
             logging.info("No writestr directory found")
+        if not self.work_dir.exists():
+            logging.error("env HOSHI_DIR not found")
 
 
 class HoshiHistory(HoshiModel):
@@ -691,3 +770,48 @@ class HoshiProfile(HoshiModel):
             else:
                 return col_data.to_numpy()
 
+# class HoshiNucNetwork(HoshiModel):
+#     def __init__(
+#         self,
+#         work_dir: str | Path,
+#         ):
+#         super().__init__(work_dir)
+#         with open(self.work_dir / "param" / "files.data", 'r') as f:
+#             lines = f.readlines()
+#             for line in lines:
+#                 if line
+            
+#         self.network_path = self.work_dir / "nuc_network.txt"
+
+
+# class HoshiCxdata(HoshiModel):
+#     def __init__(
+#         self, 
+#         path: str, 
+#         str_num: int,
+#         ):
+#         p = Path(path)
+#         target = f"cxdat{str_num:05d}.txt"
+#         # Determine work_dir and profile data_path
+#         if p.is_file() and str(path).endswith(target):
+#             # path is the profile file inside work_dir/cxdata/cxdatXXXXX.txt
+#             work_dir = p.parent.parent
+#             data_path = p
+#         elif str(path).endswith("cxdata"):
+#             # path is the cxdata directory
+#             work_dir = p.parent
+#             data_path = p / target
+#         elif p.is_dir() and (p / "evol").exists():
+#             # path is the model/work directory
+#             work_dir = p
+#             data_path = p / "cxdata" / target
+#         else:
+#             logging.error(
+#                 "Invalid path provided. Path should be either a directory or a profile file."
+#             )
+#             return
+        
+#         # initialize base to set work_dir and related dirs
+#         super().__init__(work_dir)
+#         self.data_path = data_path
+        
