@@ -8,6 +8,7 @@ from pathlib import Path
 import logging
 import re
 import os
+from io import StringIO
 
 import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
@@ -643,7 +644,7 @@ class HoshiHistoryCombined(HoshiHistory):
                     comment="#",
                     sep=r"\s+",
                     engine="python",
-                    header=0,
+                    header=None,
                     names=self.var_names,
                     dtype=str,
                     na_values=["", "NaN", "nan"],
@@ -664,7 +665,7 @@ class HoshiHistoryCombined(HoshiHistory):
                 self.data_path,
                 sep=r"\s+",
                 engine="python",
-                header=0,
+                header=None,
                 usecols=[var_name],
                 dtype=str,
                 na_values=["", "NaN", "nan"],
@@ -720,7 +721,7 @@ class HoshiProfile(HoshiModel):
                 comment="#",
                 sep=r"\s+",
                 engine="python",
-                header=0,
+                header=None,
                 names=self.var_names,
                 dtype=str,
                 na_values=["", "NaN", "nan"],
@@ -754,7 +755,9 @@ class HoshiProfile(HoshiModel):
                 self.data_path,
                 sep=r"\s+",
                 engine="python",
-                header=0,
+                comment="#",
+                header=None,
+                names=self.var_names,
                 usecols=[var_name],
                 dtype=str,
                 na_values=["", "NaN", "nan"],
@@ -904,35 +907,127 @@ class HoshiNucNetwork(HoshiModel):
 
         return nuclides
 
-
 # class HoshiCxdata(HoshiModel):
-#     def __init__(
-#         self, 
-#         path: str, 
-#         str_num: int,
-#         ):
+#     """Reader / helper for cxdata files.
+
+#     Usage: instantiate with model work directory and str number, then call
+#     `generate_str_like_file()` to produce a file containing j, Mr, dM and
+#     mass fractions for each nuclide in the network.
+#     """
+#     def __init__(self, path: str | Path, str_num: int):
 #         p = Path(path)
-#         target = f"cxdat{str_num:05d}.txt"
-#         # Determine work_dir and profile data_path
-#         if p.is_file() and str(path).endswith(target):
-#             # path is the profile file inside work_dir/cxdata/cxdatXXXXX.txt
+#         self.nstg = str_num
+#         target_cx = f"cxdat{str_num:05d}.txt"
+#         target_str = f"str{str_num:05d}.txt"
+
+#         # Determine work_dir and file paths
+#         if p.is_file() and str(path).endswith(target_cx):
 #             work_dir = p.parent.parent
-#             data_path = p
+#             self.cx_path = p
+#             self.str_path = p.parent.parent / "writestr" / target_str
 #         elif str(path).endswith("cxdata"):
-#             # path is the cxdata directory
 #             work_dir = p.parent
-#             data_path = p / target
+#             self.cx_path = p / target_cx
+#             self.str_path = p.parent / "writestr" / target_str
 #         elif p.is_dir() and (p / "evol").exists():
-#             # path is the model/work directory
 #             work_dir = p
-#             data_path = p / "cxdata" / target
+#             self.cx_path = p / "cxdata" / target_cx
+#             self.str_path = p / "writestr" / target_str
 #         else:
-#             logging.error(
-#                 "Invalid path provided. Path should be either a directory or a profile file."
-#             )
-#             return
-        
-#         # initialize base to set work_dir and related dirs
+#             logging.error("Invalid path provided. Path should be either a directory, a cxdata directory, or a cxdata file.")
+#             raise ValueError("Invalid path for HoshiCxdata")
+
 #         super().__init__(work_dir)
-#         self.data_path = data_path
+
+#         if not self.cx_path.exists():
+#             logging.error(f"cxdata file not found: {self.cx_path}")
+#             raise FileNotFoundError(self.cx_path)
+#         if not self.str_path.exists():
+#             logging.error(f"writestr file not found: {self.str_path}")
+#             raise FileNotFoundError(self.str_path)
+
+#         # load network nuclide list via HoshiNucNetwork
+#         try:
+#             net = HoshiNucNetwork(self.work_dir)
+#             self.nuclist = net.nuc_list
+#         except Exception:
+#             # fallback: empty list
+#             logging.error("Failed to load nuclear network; nuclide names will be generic.")
+#             self.nuclist = []
+        
+#         self.concent_all, self.mesh_tot, self.nctl, self.data_str = self._read_cxdata()
+
+
+#     def _read_cxdata(self):
+#         """Parse cxdata file into an array of shape (n_species, mesh_tot).
+
+#         Returns: (concent_all, mesh_tot, nctl)
+#         where concent_all is a list/array of length nctl each an array over mesh index.
+#         """
+#         with open(self.cx_path, 'r') as f:
+#             cx_lines = f.readlines()
+
+#         prof_same_nstg = HoshiProfile(
+#             path=self.work_dir,
+#             str_num=self.nstg,
+#             quick=True,
+#         )
+        
+#         mass_col = prof_same_nstg.data("Mr", dtype=float)
+#         dmass_col = prof_same_nstg.data("dM", dtype=float)
+#         cell_idx = prof_same_nstg.data("j", dtype=int)
+
+#         # get mesh_tot from str file
+#         data_str, mass_col, dmass_col = self._read_str_numpy()
+#         mesh_tot = data_str.shape[0]
+
+#         # total lines in cx file
+#         line_tot = len(cx_lines)
+#         # compute line_nctl per yield formula
+#         line_nctl = int(((line_tot - 1) / mesh_tot - 1) / 3)
+#         single_block_lines = 1 + 3 * line_nctl
+
+#         # parse first mesh block to get nctl
+#         jmesh = 1
+#         line_base = (jmesh - 1) * single_block_lines
+#         subline2 = cx_lines[line_base + 2: line_base + (2 + line_nctl)]
+#         concent_mesh = []
+#         for elem_list in subline2:
+#             for elem in elem_list.rstrip('\n').split():
+#                 try:
+#                     concent_mesh.append(float(elem))
+#                 except Exception:
+#                     concent_mesh.append(np.nan)
+#         nctl = len(concent_mesh)
+
+#         # parse all meshes
+#         concent_per_mesh = []  # list of arrays length nctl per mesh
+#         for jmesh in range(1, mesh_tot + 1):
+#             line_base = (jmesh - 1) * single_block_lines
+#             subline2 = cx_lines[line_base + 2: line_base + (2 + line_nctl)]
+#             concent_mesh = []
+#             for elem_list in subline2:
+#                 for elem in elem_list.rstrip('\n').split():
+#                     try:
+#                         concent_mesh.append(float(elem))
+#                     except Exception:
+#                         concent_mesh.append(np.nan)
+#             # if parsed length mismatches nctl, pad/truncate
+#             if len(concent_mesh) < nctl:
+#                 concent_mesh += [np.nan] * (nctl - len(concent_mesh))
+#             elif len(concent_mesh) > nctl:
+#                 concent_mesh = concent_mesh[:nctl]
+#             concent_per_mesh.append(np.array(concent_mesh))
+
+#         # transpose: get list per species
+#         concent_all = [np.array([concent_per_mesh[m][k] for m in range(mesh_tot)]) for k in range(nctl)]
+
+#         return concent_all, mesh_tot, nctl, data_str
+
+
+
+ 
+
+
+
         
