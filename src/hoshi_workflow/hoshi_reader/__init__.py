@@ -21,6 +21,7 @@ from .hoshi_reader import (
     find_first_less,
     # some reader functions 
     get_var_from_block,
+    parse_line_to_floats,
 
 )  # noqa: F401
 
@@ -36,4 +37,5 @@ __all__ = [
     "find_first_greater",
     "find_first_less",
     "get_var_from_block",
+    "parse_line_to_floats",
 ]

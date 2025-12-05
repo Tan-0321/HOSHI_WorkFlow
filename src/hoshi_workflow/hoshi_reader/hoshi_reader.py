@@ -317,6 +317,66 @@ def find_first_less(arr: np.ndarray, x: float, *, descending: bool = True) -> tu
         idx = int(pos - 1)
         return np.array([idx], dtype=int), np.array([float(a[idx])], dtype=float)
 
+
+def parse_line_to_floats(
+    line: str, *, 
+    sep: str | None = None, 
+    comment_char: str = '#'
+    )-> tuple[list[float], int]:
+    """Parse a single text line into floats safely.
+
+    Designed for streaming/iterative processing: call this for each line while
+    iterating a large file (`for line in f:`) to avoid loading the whole file.
+
+    Behavior:
+    - strips trailing/leading whitespace and removes inline comments starting with
+      `comment_char`.
+    - splits on `sep` if given, otherwise on any whitespace.
+    - converts tokens to `float`; supports Fortran-style 'D' exponent and commas.
+    - on conversion failure the token value becomes `np.nan`.
+
+    Returns:
+        (values, n_tokens)
+        - `values`: list of float values (may contain `np.nan`).
+        - `n_tokens`: number of parsed tokens (length of `values`).
+    """
+    if not isinstance(line, str):
+        return ([], 0)
+
+    # remove inline comment and surrounding whitespace
+    content = line.split(comment_char, 1)[0].strip()
+    if not content:
+        return ([], 0)
+
+    parts = content.split(sep) if sep is not None else content.split()
+    vals: list[float] = []
+    for token in parts:
+        tok = token.strip()
+        if tok == "":
+            continue
+        # quick try
+        try:
+            v = float(tok)
+            vals.append(v)
+            continue
+        except Exception:
+            # clean common formatting: commas and Fortran D exponents
+            s = tok.replace(',', '')
+            s = re.sub(r'[dD]', 'E', s)
+            # also try to fix missing E before exponent like '1.23+03' -> '1.23E+03'
+            s = re.sub(
+                r"(?P<mant>[+-]?(?:\d+\.\d*|\d*\.\d+|\d+))(?P<exp>[+-]\d{1,3})$",
+                r"\g<mant>E\g<exp>",
+                s,
+            )
+            try:
+                v = float(s)
+                vals.append(v)
+            except Exception:
+                vals.append(float('nan'))
+
+    return vals, len(vals)
+
 def get_var_from_block(file_path, target_block_idx, target_var_idx):
     """
     Parses a multi-block data file to extract a specific variable.
@@ -399,16 +459,24 @@ class HoshiModel:
         self.work_dir = Path(work_dir)
         self.summary_dir = self.work_dir / "summary"
         self.writestr_dir = self.work_dir / "writestr"
+        self.cxdata_dir = self.work_dir / "cxdata"
         self.HOSHI_DIR = os.getenv("HOSHI_DIR")
+        self.HOSHI_VERSION = os.getenv("HOSHI_version")
         self.check_dir()
 
     def check_dir(self):
-        if not self.summary_dir.exists():
-            logging.info("No summary directory found")
-        if not self.writestr_dir.exists():
-            logging.info("No writestr directory found")
-        if not self.work_dir.exists():
-            logging.error("env HOSHI_DIR not found")
+        p_bin = self.work_dir / "evol"
+        if not p_bin.exists():
+            logging.error("No evol binary found in work directory")
+        else:
+            if not self.summary_dir.exists():
+                logging.info("No summary directory found")
+            if not self.writestr_dir.exists():
+                logging.info("No writestr directory found")
+            if not self.cxdata_dir.exists():
+                logging.info("No cxdata directory found")
+            if self.HOSHI_DIR is None:
+                logging.info("HOSHI_DIR environment variable not found")
 
 
 class HoshiHistory(HoshiModel):
@@ -772,28 +840,56 @@ class HoshiProfile(HoshiModel):
                 return col_data.astype(int).to_numpy()
             else:
                 return col_data.to_numpy()
+    
+    def metallicity(self) -> float | None:
+        """Read the present metallicity from the model's param/files.data file.
+
+        Returns:
+            The present metallicity value as a float, or None if not found or on error.
+        """
+        dm = self.data('dMr')
+        z_frac = 1.0 - (self.data('X(D)') + self.data('X(p)') + self.data('X(He)'))
+        z_mass = sum(z_frac * dm)
+        mass_tot = sum(dm)
+
+        z = z_mass / mass_tot
+        return float(z) if not np.isnan(z) else None
 
 class HoshiNucNetwork(HoshiModel):
     def __init__(
         self,
-        work_dir: str | Path,
+        work_dir: str | Path | None = None,
+        network_path: str | Path | None = None,
         ):
-        super().__init__(work_dir)
-        p = get_var_from_block(
-            file_path=self.work_dir / "param" / "files.data",
-            target_block_idx=1,
-            target_var_idx=3,
-        )
-        p = Path(p)
-        if not p.is_absolute():
-            p = self.HOSHI_DIR / p
-        if not p.exists():
-            logging.error(f"Nuclear network file not found at {p}")
-            return
-        self.network_path = p
-        # parse network file into a dictionary mapping isotope name -> properties
-        self.nuc_dic = self._parse_network_file()
-        self.nuc_list = list(self.nuc_dic.keys())
+        if network_path is None:
+            super().__init__(work_dir)
+            p = get_var_from_block(
+                file_path=self.work_dir / "param" / "files.data",
+                target_block_idx=1,
+                target_var_idx=3,
+            )
+            p = Path(p)
+            if not p.is_absolute():
+                p = self.HOSHI_DIR / p
+            if not p.exists():
+                logging.error(f"Nuclear network file not found at {p}")
+                return
+            self.network_path = p
+            # parse network file into a dictionary mapping isotope name -> properties
+            self.nuc_dic = self._parse_network_file()
+            self.nuc_list = list(self.nuc_dic.keys())
+        else:
+            p = Path(network_path)
+            if not p.exists():
+                logging.error(f"Nuclear network file with given path not found at {p}")
+                return
+            self.network_path = p
+            try:
+                self.nuc_dic = self._parse_network_file()
+                self.nuc_list = list(self.nuc_dic.keys())
+            except Exception as e:
+                logging.error(f"Failed to parse nuclear network file {p}: {e}")
+                return
 
     def _parse_network_file(self) -> dict:
         """Parse the nuclear network file and return a dict of nuclide properties.
@@ -907,122 +1003,440 @@ class HoshiNucNetwork(HoshiModel):
 
         return nuclides
 
-# class HoshiCxdata(HoshiModel):
-#     """Reader / helper for cxdata files.
-
-#     Usage: instantiate with model work directory and str number, then call
-#     `generate_str_like_file()` to produce a file containing j, Mr, dM and
-#     mass fractions for each nuclide in the network.
-#     """
-#     def __init__(self, path: str | Path, str_num: int):
-#         p = Path(path)
-#         self.nstg = str_num
-#         target_cx = f"cxdat{str_num:05d}.txt"
-#         target_str = f"str{str_num:05d}.txt"
-
-#         # Determine work_dir and file paths
-#         if p.is_file() and str(path).endswith(target_cx):
-#             work_dir = p.parent.parent
-#             self.cx_path = p
-#             self.str_path = p.parent.parent / "writestr" / target_str
-#         elif str(path).endswith("cxdata"):
-#             work_dir = p.parent
-#             self.cx_path = p / target_cx
-#             self.str_path = p.parent / "writestr" / target_str
-#         elif p.is_dir() and (p / "evol").exists():
-#             work_dir = p
-#             self.cx_path = p / "cxdata" / target_cx
-#             self.str_path = p / "writestr" / target_str
-#         else:
-#             logging.error("Invalid path provided. Path should be either a directory, a cxdata directory, or a cxdata file.")
-#             raise ValueError("Invalid path for HoshiCxdata")
-
-#         super().__init__(work_dir)
-
-#         if not self.cx_path.exists():
-#             logging.error(f"cxdata file not found: {self.cx_path}")
-#             raise FileNotFoundError(self.cx_path)
-#         if not self.str_path.exists():
-#             logging.error(f"writestr file not found: {self.str_path}")
-#             raise FileNotFoundError(self.str_path)
-
-#         # load network nuclide list via HoshiNucNetwork
-#         try:
-#             net = HoshiNucNetwork(self.work_dir)
-#             self.nuclist = net.nuc_list
-#         except Exception:
-#             # fallback: empty list
-#             logging.error("Failed to load nuclear network; nuclide names will be generic.")
-#             self.nuclist = []
+class HoshiCxdata(HoshiModel):
+    """Class to handle HOSHI cxdata files and parse them into DataFrames.
+    Reads cxdata and corresponding writestr files for a given stage number,
+    and constructs a DataFrame with appropriate variable names including
+    nuclide mass fractions.
+    Args:
+        path (str | Path): Path to the HOSHI model work directory or specific cxdata file.
+        str_num (int): Stage number corresponding to the cxdata and writestr files.
+        quick (bool, optional): If True, skips loading the full DataFrame for faster initialization. Defaults to False.
+        network_path (str | Path | None, optional): Path to the nuclear network file like 'mass49J1.txt'. If None, attempts to load from work directory. Defaults to None.
+    """
+    def __init__(
+        self, 
+        path: str | Path, 
+        str_num: int,
+        quick: bool = False,
+        network_path: str | Path | None = None,
+        ):
+        p = Path(path)
+        self.nstg = int(str_num)
+        target_cx = f"cxdat{self.nstg:05d}.txt"
+        target_str = f"str{self.nstg:05d}.txt"
+        self.quick_mode = quick
         
-#         self.concent_all, self.mesh_tot, self.nctl, self.data_str = self._read_cxdata()
+        self.dataframe = None
+        self.var_names = None
+        self.nuclist = None
+        self.nctl = None
+        self.cx_path = None
+        self.str_path = None
+        self.max_norm_diff = None
 
+        # Determine work_dir and file paths
+        if p.is_file() and str(path).endswith(target_cx):
+            work_dir = p.parent.parent
+            self.cx_path = p
+            self.str_path = p.parent.parent / "writestr" / target_str
+        elif str(path).endswith("cxdata"):
+            work_dir = p.parent
+            self.cx_path = p / target_cx
+            self.str_path = p.parent / "writestr" / target_str
+        elif p.is_dir() and (p / "evol").exists():
+            work_dir = p
+            self.cx_path = p / "cxdata" / target_cx
+            self.str_path = p / "writestr" / target_str
+        else:
+            logging.error("Invalid path provided. Path should be either a directory, a cxdata directory, or a cxdata file.")
+            raise ValueError("Invalid path for HoshiCxdata")
 
-#     def _read_cxdata(self):
-#         """Parse cxdata file into an array of shape (n_species, mesh_tot).
+        super().__init__(work_dir)
 
-#         Returns: (concent_all, mesh_tot, nctl)
-#         where concent_all is a list/array of length nctl each an array over mesh index.
-#         """
-#         with open(self.cx_path, 'r') as f:
-#             cx_lines = f.readlines()
-
-#         prof_same_nstg = HoshiProfile(
-#             path=self.work_dir,
-#             str_num=self.nstg,
-#             quick=True,
-#         )
+        if not self.cx_path.exists():
+            logging.error(f"cxdata file not found: {self.cx_path}")
+            raise FileNotFoundError(self.cx_path)
+        if not self.str_path.exists():
+            logging.error(f"writestr file not found: {self.str_path}")
+            raise FileNotFoundError(self.str_path)
         
-#         mass_col = prof_same_nstg.data("Mr", dtype=float)
-#         dmass_col = prof_same_nstg.data("dM", dtype=float)
-#         cell_idx = prof_same_nstg.data("j", dtype=int)
+        self.parsed_cx_path = self.cx_path.parent / f"parsed_cxdat_{self.nstg:05d}.txt"
+        
+        if self.parsed_cx_path.exists():
+            logging.info(f"Using existing parsed cxdata file: {self.parsed_cx_path}")
+            self.var_names = self._get_var_names()
+            self.nuclist = self.var_names[4:]  # first 4 are non-nuclide vars
+            
+            if not quick:
+                df = pd.read_csv(
+                    self.parsed_cx_path,
+                    comment="#",
+                    sep=r"\s+",
+                    engine="python",
+                    header=None,
+                    names=self.var_names,
+                    dtype=str,
+                    na_values=["", "NaN", "nan"],
+                    keep_default_na=True,
+                )
+                self.dataframe = coerce_dtypes(df, dtype=float)
+            else:
+                self.dataframe = None
+                logging.info("Quick mode: skipping loading of parsed cxdata. To access data, use data() method which reads from file directly.")
+            return
 
-#         # get mesh_tot from str file
-#         data_str, mass_col, dmass_col = self._read_str_numpy()
-#         mesh_tot = data_str.shape[0]
+        if network_path is not None:
+            try:
+                net = HoshiNucNetwork(network_path=network_path)
+                self.nuclist = net.nuc_list
+            except Exception as e:
+                logging.error(f"Failed to load nuclear network from given path.")
+                self.nuclist = []
+        else:
+            # load network nuclide list via HoshiNucNetwork
+            try:
+                net = HoshiNucNetwork(self.work_dir)
+                self.nuclist = net.nuc_list
+            except Exception:
+                # fallback: empty list
+                logging.error("Failed to load nuclear network; nuclide names will be generic.")
+                self.nuclist = []
+        
+        self.nctl = len(self.nuclist)
+        if self._check_nctl() != self.nctl:
+            logging.warning(f"cxdata nctl does not match expected {self.nctl} from network. Using detected nctl, and nuclide names may not match.")
+        
+        
+        df_clean, max_diff = self._read_cxdata()
+        self.dataframe = df_clean
+        self.var_names = self._get_var_names()
+        self.max_norm_diff = max_diff
+        
+    def _check_nctl(self):
+        """
+        Determine nctl from the cxdata file by inspecting special lines.
+        """
+        with open(self.cx_path, "r") as f:
+            #read first line, nstg, zone number
+            line = f.readline()
+            vals, n_tokens = parse_line_to_floats(line)
+            if n_tokens == 2:
+                nstg_cx = int(vals[0])
+                mesh_tot = int(vals[1])
+                if self.nstg != nstg_cx:
+                    logging.warning(f"cxdata nstg {nstg_cx} does not match expected {self.nstg}")
+            else:
+                logging.error("Invalid cxdata header line.")
+                return None
+            
+            # read data blocks
+            # each block: last dt, dMr, lines, each line: species mass fraction
+            
+            # skip first data block header
+            line = f.readline()
+            # find nctl by checking special lines, which do not have 3 tokens
+            # if could be the end of data block or start of next block
+            num_special_line = []
+            idx_special_line = []
+            i = 0
+            while len(num_special_line) < 4:
+                line = f.readline()
+                i += 1
+                vals, n_tokens = parse_line_to_floats(line)
+                if n_tokens != 3:
+                    num_special_line.append(n_tokens)
+                    idx_special_line.append(i)
+            
+            if num_special_line == [1, 1, 1, 2]:
+                nctl = idx_special_line[0] * 3 - 2
+            elif num_special_line == [2, 2, 2, 2]:
+                if idx_special_line[-1] - idx_special_line[-2] == 1:
+                    nctl = idx_special_line[0] * 3 - 1
+                else:
+                    nctl = (idx_special_line[0] - 1)
+            else:
+                logging.error("Cannot determine nctl from cxdata file.")
+                return None
+            logging.info(f"Determined nctl = {nctl} from cxdata file.")
+            return int(nctl)
+        
 
-#         # total lines in cx file
-#         line_tot = len(cx_lines)
-#         # compute line_nctl per yield formula
-#         line_nctl = int(((line_tot - 1) / mesh_tot - 1) / 3)
-#         single_block_lines = 1 + 3 * line_nctl
+    def _read_cxdata(self):
+        """Read and parse the cxdata file for the given stage number,
+        returning a cleaned DataFrame with appropriate column names.
+        Returns:
+            pd.DataFrame: Parsed and cleaned DataFrame from cxdata.
+            float: Maximum normalized error in mass fractions.
+        """
+        
+        prof_same_nstg = HoshiProfile(
+            path=self.work_dir,
+            str_num=self.nstg,
+            quick=True,
+        )
+        
+        mass_col = prof_same_nstg.data("Mr", dtype=float)
+        cell_idx = prof_same_nstg.data("j", dtype=int)
+        
+        with open(self.cx_path, "r") as f:
+            #read first line, nstg, zone number
+            line = f.readline()
+            vals, n_tokens = parse_line_to_floats(line)
+            if n_tokens == 2:
+                nstg_cx = int(vals[0])
+                mesh_tot = int(vals[1])
+                if self.nstg != nstg_cx:
+                    logging.error(f"cxdata nstg {nstg_cx} does not match expected {self.nstg}")
+                    return None
+                if mesh_tot != len(mass_col):
+                    logging.error(f"cxdata mesh_tot {mesh_tot} does not match profile file {prof_same_nstg.data_path}")
+                    return None
+            else:
+                logging.error("Invalid cxdata header line.")
+                return None
+            
+            mf_lines = []
+            block_hight = self.nctl // 3 + (1 if self.nctl % 3 != 0 else 0)
+            while len(mf_lines) < mesh_tot:
+                
+                max_diff = -1
+                
+                # read data blocks
+                # each block: last dt, dMr, lines, each line: species mass fraction
+                line = f.readline()
+                vals, n_tokens = parse_line_to_floats(line)
+                dt_last = vals[0] 
+                dMr = vals[1]
+                single_line_data = []
+                single_line_data.append(cell_idx[len(mf_lines)])
+                single_line_data.append(mass_col[len(mf_lines)])
+                single_line_data.append(dt_last)
+                single_line_data.append(dMr)
+                
+                diff = 0
+                for _ in range(block_hight):
+                    line = f.readline()
+                    vals, n_tokens = parse_line_to_floats(line)
+                    for v in vals:
+                        single_line_data.append(v)
+                        diff += v
+                diff = abs(1 - diff)
+                max_diff = max(max_diff, diff)
+                mf_lines.append(single_line_data)
+                
+                if len(mf_lines) >= mesh_tot:
+                    break
+                
+                for _ in range(block_hight*2):
+                    line = f.readline()
+                    # skip these lines  
+        
+        
+        logging.info(f"Maximum normalized error: {max_diff:3e}")
+        # --- post-processing: convert mf_lines (list[list]) -> padded DataFrame ---
+        if not mf_lines:
+            logging.error("No mass-fraction lines parsed from cxdata file.")
+            return [], mesh_tot if 'mesh_tot' in locals() else 0, 0, None
 
-#         # parse first mesh block to get nctl
-#         jmesh = 1
-#         line_base = (jmesh - 1) * single_block_lines
-#         subline2 = cx_lines[line_base + 2: line_base + (2 + line_nctl)]
-#         concent_mesh = []
-#         for elem_list in subline2:
-#             for elem in elem_list.rstrip('\n').split():
-#                 try:
-#                     concent_mesh.append(float(elem))
-#                 except Exception:
-#                     concent_mesh.append(np.nan)
-#         nctl = len(concent_mesh)
+        # pad rows to equal length
+        max_len = max(len(r) for r in mf_lines)
+        padded = [r + [np.nan] * (max_len - len(r)) for r in mf_lines]
 
-#         # parse all meshes
-#         concent_per_mesh = []  # list of arrays length nctl per mesh
-#         for jmesh in range(1, mesh_tot + 1):
-#             line_base = (jmesh - 1) * single_block_lines
-#             subline2 = cx_lines[line_base + 2: line_base + (2 + line_nctl)]
-#             concent_mesh = []
-#             for elem_list in subline2:
-#                 for elem in elem_list.rstrip('\n').split():
-#                     try:
-#                         concent_mesh.append(float(elem))
-#                     except Exception:
-#                         concent_mesh.append(np.nan)
-#             # if parsed length mismatches nctl, pad/truncate
-#             if len(concent_mesh) < nctl:
-#                 concent_mesh += [np.nan] * (nctl - len(concent_mesh))
-#             elif len(concent_mesh) > nctl:
-#                 concent_mesh = concent_mesh[:nctl]
-#             concent_per_mesh.append(np.array(concent_mesh))
+        # build column names: dt_last, dMr, then species
+        ncols = max_len
+        col_names = []
+        if ncols >= 1:
+            col_names.append("j")
+        if ncols >= 2:
+            col_names.append("Mr")
+        if ncols >= 3:
+            col_names.append("dtprv")
+        if ncols >= 4:
+            col_names.append("dMr")
+        
+        n_species_cols = max(0, ncols - 4)
+        # prefer using self.nuclist for species names when available
+        if hasattr(self, "nuclist") and self.nuclist and len(self.nuclist) >= n_species_cols:
+            species_names = [str(x) for x in self.nuclist[:n_species_cols]]
+        else:
+            species_names = [f"spec_{i+1}" for i in range(n_species_cols)]
 
-#         # transpose: get list per species
-#         concent_all = [np.array([concent_per_mesh[m][k] for m in range(mesh_tot)]) for k in range(nctl)]
+        col_names.extend(species_names)
+        # add numeric prefix to column names: '1:j', '2:Mr', ...
+        numbered_col_names = [f"{i+1}:{name}" for i, name in enumerate(col_names)]
+        col_names = numbered_col_names
+        # safety: trim or extend to match ncols
+        if len(col_names) > ncols:
+            col_names = col_names[:ncols]
+        elif len(col_names) < ncols:
+            col_names += [f"col_{i}" for i in range(len(col_names), ncols)]
 
-#         return concent_all, mesh_tot, nctl, data_str
+        # Build two DataFrames: one with numbered column names (for saving)
+        # and one with base column names (for the API, e.g. data('Mr')).
+        numbered_cols = col_names
+        base_cols = [n.split(':', 1)[1] if ':' in n else n for n in numbered_cols]
+
+        df_numbered = pd.DataFrame(padded, columns=numbered_cols)
+        df_base = pd.DataFrame(padded, columns=base_cols)
+
+        # Use existing cleaning/coercion utilities on the base-named DataFrame
+        try:
+            df_base_clean = coerce_dtypes(df_base.astype(str), dtype=float)
+        except Exception:
+            # fallback: try simple numeric coercion
+            df_base_clean = df_base.copy()
+            for c in df_base_clean.columns:
+                df_base_clean[c] = pd.to_numeric(df_base_clean[c], errors="coerce").astype(float)
+
+        # Ensure first column 'j' is integer type and other columns are float
+        if 'j' in df_base_clean.columns:
+            try:
+                df_base_clean['j'] = df_base_clean['j'].astype('int64')
+            except Exception:
+                df_base_clean['j'] = pd.to_numeric(df_base_clean['j'], errors='coerce').fillna(-1).astype('int64')
+
+        for c in df_base_clean.columns:
+            if c != 'j':
+                df_base_clean[c] = pd.to_numeric(df_base_clean[c], errors='coerce').astype(float)
+
+        # Prepare DataFrame to save: use the cleaned base DataFrame but with
+        # numbered column names so header shows indices like '1:j'. This keeps
+        # the on-disk format friendly while API access uses base names.
+        df_to_save = df_base_clean.copy()
+        df_to_save.columns = numbered_cols
+
+        # Expose API DataFrame (base names) to callers
+        df_clean = df_base_clean
+
+        # save to file in same directory as cxfile with suffix _parsed.txt
+        save_path = self.cx_path.parent / f"parsed_cxdat_{self.nstg:05d}.txt"
+
+        # build format lists: first col j -> %6d, others -> %15.6e (7 sig figs: one before decimal + 6 after)
+        ncols = len(df_to_save.columns)
+        fmt_list = ['%6d'] + ['%15.6e'] * (ncols - 1)
+
+        # header line with same alignment (we want to prefix with '# ' but
+        # keep visual alignment with the data columns). To do that reduce the
+        # first header field width by len(prefix) so that `prefix + first_field`
+        # occupies the same width as the data's first column.
+        header_fmt_list = ['%6s'] + ['%15s'] * (ncols - 1)
+        prefix = '# '
+
+        # adjust first field width to account for the prefix length
+        first_fmt = header_fmt_list[0]
+        m = re.match(r"%(\d+)s", first_fmt)
+        if m:
+            width = int(m.group(1))
+            adj_width = max(1, width - len(prefix))
+            header_fmt_list_adj = [f"%{adj_width}s"] + header_fmt_list[1:]
+        else:
+            header_fmt_list_adj = header_fmt_list
+
+        # Use numbered column names for header alignment on disk
+        header_line = ' '.join(fmt % name for fmt, name in zip(header_fmt_list_adj, df_to_save.columns))
+
+        try:
+            with open(save_path, 'w') as f:
+                f.write(prefix + f"nstg={self.nstg}\t\t ndv={mesh_tot}\t\t nctl={self.nctl}\n\n")
+                f.write(prefix + header_line + '\n')
+                np.savetxt(f, df_to_save.to_numpy(), fmt=fmt_list)
+        except Exception as e:
+            logging.error(f"Failed to write parsed cxdata to {save_path}: {e}")
+
+        return df_clean, max_diff
+    
+    def _get_var_names(self) -> list:
+        """Get variable names from the parsed cxdata file header.
+        Returns:
+            list: List of variable names.
+        """
+        with open(self.parsed_cx_path, "r") as file:
+            for _ in range(2):
+                next(file)
+            header_line = next(file)
+
+        cleaned_header = header_line.replace("#", "")
+        cleaned_header = re.sub(r"\d+:", " ", cleaned_header)
+        variable_names = cleaned_header.split()
+        return variable_names
+    
+    def data(self, var_name: str, dtype=float) -> np.ndarray:
+        """
+        Get data for a specific variable from the cxdata file.
+        Args:
+            var_name (str): Variable name to retrieve.
+            dtype (type, optional): Desired data type for the output array. Defaults to float.
+        Returns:
+            np.ndarray: Array of data for the specified variable.
+        """
+        if var_name not in self.var_names:
+            logging.error(f"Variable name '{var_name}' not found in the file.")
+            return np.array([])
+
+        if self.quick_mode or self.dataframe is None:
+            df = pd.read_csv(
+                self.parsed_cx_path,
+                sep=r"\s+",
+                engine="python",
+                comment="#",
+                header=None,
+                names=self.var_names,
+                usecols=[var_name],
+                dtype=str,
+                na_values=["", "NaN", "nan"],
+                keep_default_na=True,
+            )
+            return _clean_series_and_cast(df[var_name], dtype)
+        else:
+            col_data = self.dataframe[var_name]
+            if dtype in (float, "float", "float64"):
+                return col_data.astype(float).to_numpy()
+            elif dtype in (int, "int", "int64"):
+                return col_data.astype(int).to_numpy()
+            else:
+                return col_data.to_numpy()
+    
+    def isotope_yield(
+        self, 
+        isotope,
+        mass_cut_idx: int | None = None,
+        ) -> float:
+        """Calculate the isotope yield from the profile data.
+
+        Returns:
+            float: The isotope yield in solar masses.
+        """
+        if isotope not in self.var_names:
+            logging.error(f"Isotope '{isotope}' not found in the cxdata file.")
+            return float('nan')
+        if mass_cut_idx is None:
+            mass_cut_idx = 0  # default to surface
+        dm = self.data('dMr')[mass_cut_idx:]
+        y_isotope = sum(self.data(isotope)[mass_cut_idx:] * dm)  # assuming spec_1 is the isotope of interest
+        return float(y_isotope)
+    
+    def yields_dictionary(
+        self,
+        mass_cut_idx: int | None = None
+        ) -> dict:
+        """Calculate yields for all isotopes in the cxdata file.
+
+        Returns:
+            dict: A dictionary with isotope names as keys and their yields as values.
+        """
+        yields = {}
+        if mass_cut_idx is None:
+            mass_cut_idx = 0  # default to surface
+        for iso in self.nuclist:
+            y_iso = self.isotope_yield(iso, mass_cut_idx=mass_cut_idx )
+            yields[iso] = y_iso
+        return yields
+    
+
+        
+
+
 
 
 
