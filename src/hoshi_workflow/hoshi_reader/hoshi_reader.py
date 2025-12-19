@@ -17,9 +17,9 @@ import pandas as pd
 from pandas.api.types import is_integer_dtype, is_float_dtype, is_string_dtype
 
 # Constants
-G_GRAV = 6.67428e-8  # in cm^3/g/s^2
+G_GRAV = 6.67384e-8  # in cm^3/g/s^2
 R_SUN = 6.9566e10  # in cm
-M_SUN = 1.9891e33  # in g
+M_SUN = 1.989e33  # in g
 L_SUN = 3.839e33  # in erg/
 
 
@@ -840,20 +840,51 @@ class HoshiProfile(HoshiModel):
                 return col_data.astype(int).to_numpy()
             else:
                 return col_data.to_numpy()
-    
-    def metallicity(self) -> float | None:
-        """Read the present metallicity from the model's param/files.data file.
+            
+    def get_tot_energy(self):
 
+        radius = self.data("Radius")
+        vel    = self.data("Vel")
+        mass   = self.data("Mr")
+        eint   = self.data("eint")
+        
+        rad0  = 0.0
+        vel0  = 0.0
+        mass0 = 0.0
+
+        v_center = 0.5 * (np.concatenate([[vel0],   vel[:-1]])   + vel)      # length ndv
+        r_center = 0.5 * (np.concatenate([[rad0],   radius[:-1]]) + radius)  # length ndv
+        mass_left = np.concatenate([[mass0], mass[:-1]])  # left boundary mass, corresponding to grid j's left boundary
+
+        # specific energy
+        e_kin  = 0.5 * v_center**2
+        e_grav = -G_GRAV * mass_left * M_SUN / r_center    # mass_left[0]=0 → e_grav[0]=0
+
+        e_tot = eint + e_kin + e_grav
+        return e_tot
+    
+    def metallicity(
+        self,
+        XY_list: list = ['X(D)', 'X(He)', 'X(p)']
+        ) -> float | None:
+        """Read the present metallicity from the model's param/files.data file.
+        Args:
+            XY_list: List of element mass fraction variable names to exclude from Z calculation.
         Returns:
             The present metallicity value as a float, or None if not found or on error.
         """
+        mf_nucs = [item for item in self.var_names if item.startswith("X(") and item.endswith(")")]
         dm = self.data('dMr')
-        z_frac = 1.0 - (self.data('X(D)') + self.data('X(p)') + self.data('X(He)'))
-        z_mass = sum(z_frac * dm)
+        z_mass_tot = 0.0
+        for item in mf_nucs:
+            if item not in XY_list:
+                z_mass = self.data(item) * dm
+                z_mass_tot += sum(z_mass)
         mass_tot = sum(dm)
-
-        z = z_mass / mass_tot
+        print( z_mass_tot, mass_tot)
+        z = z_mass_tot / mass_tot
         return float(z) if not np.isnan(z) else None
+
 
 class HoshiNucNetwork(HoshiModel):
     def __init__(
@@ -1397,6 +1428,7 @@ class HoshiCxdata(HoshiModel):
             else:
                 return col_data.to_numpy()
     
+        
     def isotope_yield(
         self, 
         isotope,
