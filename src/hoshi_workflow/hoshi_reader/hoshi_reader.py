@@ -822,6 +822,7 @@ class HoshiProfile(HoshiModel):
         # initialize base to set work_dir and related dirs
         super().__init__(work_dir)
         self.data_path = data_path
+        self.global_params = self._get_global_params()
         self.var_names = self._get_var_names()
         self.quick_mode = quick
         if not quick:
@@ -842,6 +843,18 @@ class HoshiProfile(HoshiModel):
             logging.info("Quick mode: skipping loading of profile data. To access data, use data() method which reads from file directly.")
             return
 
+    def _get_global_params(self) -> dict:
+        with open(self.data_path, "r") as file:
+            text = file.readline()
+        
+        pattern = r"([a-zA-Z0-9_]+)\s*=\s*([-+]?\d+(?:\.\d+)?(?:[eE][-+]?\d+)?)"
+        data_dict = {match[0]: float(match[1]) for match in re.findall(pattern, text)}
+        if 'nstg' in data_dict:
+            data_dict['nstg'] = int(data_dict['nstg'])
+        if 'ndv' in data_dict:
+            data_dict['ndv'] = int(data_dict['ndv'])
+        return data_dict
+    
     def _get_var_names(self) -> list:
         with open(self.data_path, "r") as file:
             for _ in range(2):
