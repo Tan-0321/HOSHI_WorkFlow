@@ -463,6 +463,7 @@ class HoshiModel:
         self.HOSHI_DIR = os.getenv("HOSHI_DIR")
         self.HOSHI_VERSION = os.getenv("HOSHI_version")
         self.check_dir()
+        self.prof_idxs = self.gen_prof_index()
 
     def check_dir(self):
         p_bin = self.work_dir / "evol"
@@ -477,7 +478,47 @@ class HoshiModel:
                 logging.info("No cxdata directory found")
             if self.HOSHI_DIR is None:
                 logging.info("HOSHI_DIR environment variable not found")
-
+    
+    def gen_prof_index(
+        self,
+        end_nstg: int | None = None,
+        start_nstg: int = 0,    
+        ):
+        def _parse_1st_line(nstg: int) -> tuple[int, float, float]:
+            path_file = self.writestr_dir / f"str{nstg:05d}.txt"
+            values: list[float] = []
+            with open(path_file, "r") as f:
+                line = f.readline()
+                for part in line.split():
+                    clean_part = part.replace('=', '')
+                    try:
+                        val = float(clean_part)
+                        values.append(val)
+                    except ValueError:
+                        continue
+            if len(values) == 4:
+                return int(values[1]), values[2], values[3]
+            else:
+                raise ValueError(f"Unexpected format in {path_file}")
+        
+        def get_indices_pathlib(start, end):
+            indices = []
+            for file_path in self.writestr_dir.glob('str*.txt'):
+                name_part = file_path.stem 
+                if name_part.startswith("str") and name_part[3:].isdigit():
+                    idx = int(name_part[3:])
+                    if start <= idx <= end:
+                        indices.append(idx)
+            return sorted(indices)
+        
+        if end_nstg is None:
+            end_nstg = 99999
+        idxs = get_indices_pathlib(start_nstg, end_nstg)
+        for idx in idxs:
+            nstg, time, dt = _parse_1st_line(idx)
+            logging.info(f"nstg: {nstg:05d}, time: {time:.6e}, dt: {dt:.6e}")
+        
+        return idxs
 
 class HoshiHistory(HoshiModel):
 
