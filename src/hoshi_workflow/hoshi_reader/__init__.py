@@ -22,6 +22,10 @@ from .hoshi_reader import (
     # some reader functions 
     get_var_from_block,
     parse_line_to_floats,
+    
+    # some plotting functions 
+    set_plot_xtickers,
+    set_plot_ytickers,
 
 )  # noqa: F401
 
@@ -38,4 +42,6 @@ __all__ = [
     "find_first_less",
     "get_var_from_block",
     "parse_line_to_floats",
+    "set_plot_xtickers",
+    "set_plot_ytickers",
 ]
