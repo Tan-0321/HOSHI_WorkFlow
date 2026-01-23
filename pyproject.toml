@@ -26,6 +26,9 @@ classifiers = [
 [tool.setuptools.packages.find]
 where = ["src"]
 
+[tool.setuptools.package-data]
+hoshi_workflow = ["data/**/*.txt", "data/**/*.dat"]
+
 [project.optional-dependencies]
 dev = [
     "pytest>=7.0",

@@ -16,11 +16,85 @@ import numpy as np
 import pandas as pd
 from pandas.api.types import is_integer_dtype, is_float_dtype, is_string_dtype
 
+import hoshi_workflow.data as hw_data
+
 # Constants
 G_GRAV = 6.67384e-8  # in cm^3/g/s^2
 R_SUN = 6.9566e10  # in cm
 M_SUN = 1.989e33  # in g
 L_SUN = 3.839e33  # in erg/
+
+# Element symbol to atomic number mapping
+ELEMENTS_DICT = {
+    'h': 1, 'he': 2,
+    
+    'li': 3, 'be': 4, 'b': 5, 'c': 6,
+    'n': 7, 'o': 8, 'f': 9, 'ne': 10,
+    
+    'na': 11, 'mg': 12, 'al': 13, 'si': 14,
+    'p': 15, 's': 16, 'cl': 17, 'ar': 18,
+    
+    'k': 19, 'ca': 20, 'sc': 21, 'ti': 22,
+    'v': 23, 'cr': 24, 'mn': 25, 'fe': 26,
+    'co': 27, 'ni': 28, 'cu': 29, 'zn': 30,
+    'ga': 31, 'ge': 32, 'as': 33, 'se': 34,
+    'br': 35, 'kr': 36,
+    
+    'rb': 37, 'sr': 38, 'y': 39, 'zr': 40,
+    'nb': 41, 'mo': 42, 'tc': 43, 'ru': 44,
+    'rh': 45, 'pd': 46, 'ag': 47, 'cd': 48,
+    'in': 49, 'sn': 50, 'sb': 51, 'te': 52,
+    'i': 53, 'xe': 54,
+    
+    'cs': 55, 'ba': 56, 'la': 57, 'ce': 58,
+    'pr': 59, 'nd': 60, 'pm': 61, 'sm': 62,
+    'eu': 63, 'gd': 64, 'tb': 65, 'dy': 66,
+    'ho': 67, 'er': 68, 'tm': 69, 'yb': 70,
+    'lu': 71, 'hf': 72, 'ta': 73, 'w': 74,
+    're': 75, 'os': 76, 'ir': 77, 'pt': 78,
+    'au': 79, 'hg': 80, 'tl': 81, 'pb': 82,
+    'bi': 83, 'po': 84, 'at': 85, 'rn': 86,
+    
+    'fr': 87, 'ra': 88, 'ac': 89, 'th': 90,
+    'pa': 91, 'u': 92, 'np': 93, 'pu': 94,
+    'am': 95, 'cm': 96, 'bk': 97, 'cf': 98,
+    'es': 99, 'fm': 100, 'md': 101, 'no': 102,
+    'lr': 103, 'rf': 104, 'db': 105, 'sg': 106,
+    'bh': 107, 'hs': 108, 'mt': 109, 'ds': 110,
+    'rg': 111, 'cn': 112, 'nh': 113, 'fl': 114,
+    'mc': 115, 'lv': 116, 'ts': 117, 'og': 118
+}
+
+def parse_iso_name(text):
+
+    pattern = r'^([A-Za-z]{1,2})(\d{1,2})$'
+    match = re.match(pattern, text)
+    
+    if match:
+        letters = match.group(1)
+        numbers = match.group(2)
+        return letters, numbers
+    return None, None
+
+# Decay branching and special cases
+branch_dict = {
+    'cl36': {'s36': 0.019, 'ar36': 0.981},
+    'sc46': {'ti46': 1.0},
+    'sc48': {'ti48': 1.0},
+    'mn54': {'cr54': 1.0},
+    'co58': {'fe58': 1.0},
+    'cu64': {'ni64': 0.615, 'zn64': 0.385},
+}
+
+special_dict = {
+    'n': {'h1': 1.0},
+    'al-6': {'mg26': 1.0},
+    'al*6': {'mg26': 1.0},
+    'b8' : {'he4': 1.0},
+    'b9': {'he4': 8./9., 'h1': 1-8./9.},
+    'be8' : {'he4': 1.0},
+    
+}
 
 
 def _clean_series_and_cast(s: pd.Series, dtype):
@@ -624,7 +698,7 @@ class HoshiHistory(HoshiModel):
         else:
             if run_index < 1 or run_index > len(runs):
                 logging.error(
-                    f"run_index out of range. Must be between 1 and {len(runs)}"
+                    f"run_index {run_index} out of range. Must be between 1 and {len(runs)}"
                 )
                 return pd.DataFrame()
             sel = runs[run_index - 1]
@@ -667,12 +741,12 @@ class HoshiHistory(HoshiModel):
 
         idx_run -= 1
         while idx_run > 0 and end_idx > 0:
-            idx_run -= 1
+            
             df = self.read_run(idx_run)
             stg = df['stg'].to_numpy(dtype=int)
             if not end_idx in stg:
                 logging.warning(f"End index {end_idx} not found in run {idx_run}, skipping it.")
-                continue
+
             else:
                 logging.info(f"Found end index {end_idx} in run {idx_run}.")
                 cut_idx = np.where(stg == end_idx)[0][0]
@@ -685,6 +759,8 @@ class HoshiHistory(HoshiModel):
                     break
                 else:
                     end_idx = stg_list[0] - 1
+            
+            idx_run -= 1
         if idx_run == 0:
             logging.info(f"Processed all runs. The beginning of the combined data is stg {stg_list[0]}.")
                 
@@ -1497,7 +1573,7 @@ class HoshiCxdata(HoshiModel):
             logging.error(f"Isotope '{isotope}' not found in the cxdata file.")
             return float('nan')
         if mass_cut_idx is None:
-            mass_cut_idx = 0  # default to surface
+            mass_cut_idx = 0  # default to center
         dm = self.data('dMr')[mass_cut_idx:]
         y_isotope = sum(self.data(isotope)[mass_cut_idx:] * dm)  # assuming spec_1 is the isotope of interest
         return float(y_isotope)
@@ -1513,11 +1589,113 @@ class HoshiCxdata(HoshiModel):
         """
         yields = {}
         if mass_cut_idx is None:
-            mass_cut_idx = 0  # default to surface
+            mass_cut_idx = 0  # default to center
         for iso in self.nuclist:
             y_iso = self.isotope_yield(iso, mass_cut_idx=mass_cut_idx )
             yields[iso] = y_iso
         return yields
+    
+    def to_stable_yields(
+        self,
+        stable_ref_path: None| str | Path = None,
+        mass_cut_idx: int | None = None,
+        sort_output: bool = True,
+        ) -> dict:  
+        
+        if stable_ref_path is None:
+            stable_ref_path = hw_data.get_solar_stable_path()
+        
+        with open(stable_ref_path, 'r') as f:
+            lines = f.readlines()[:-1]  # 跳过最后一行（如果是空行）
+
+        data = [line.rstrip('\n').split() for line in lines if line.strip()]
+
+        nuc_A_st = [int(d[0]) for d in data]
+        nuc_Z_st = [int(d[1]) for d in data]
+        nuc_N_st = [a - z for a, z in zip(nuc_A_st, nuc_Z_st)] 
+        name_st = [d[2] for d in data]
+        tau_st = [float(d[3].replace('d', 'e')) for d in data]
+
+        nctl_st = len(nuc_A_st)
+
+        iso_st = [f"{n.lower()}{a}" for n, a in zip(name_st, nuc_A_st)]
+        
+        def find_final_stable_destination(
+            iso, 
+            nuc_A_st=nuc_A_st,
+            nuc_Z_st=nuc_Z_st,
+            name_st=name_st,
+            elements_dict=ELEMENTS_DICT,
+            ):
+            # iso like 'fe60'
+            element_name, num_A = parse_iso_name(iso)
+            num_Z = elements_dict[element_name]
+            
+            stable_candidates = []
+            for i, A in enumerate(nuc_A_st):
+                if A == int(num_A):
+                    stable_candidates.append(i)
+            
+            dZ = []
+            min_dZ = 1000
+            target_idx = -1
+            for idx in stable_candidates:
+                dZ.append(abs(num_Z - nuc_Z_st[idx]))
+                if dZ[-1] < min_dZ:
+                    min_dZ = dZ[-1]
+                    target_idx = idx
+            if target_idx == -1:
+                return None  # No stable isotope found for this A
+            target_stable_iso = f"{name_st[target_idx].lower()}{nuc_A_st[target_idx]}"
+            return target_stable_iso
+        
+        yields_dict = self.yields_dictionary(mass_cut_idx=mass_cut_idx)
+        yields_dict['h1'] = yields_dict.pop('p')
+        yields_dict['h2'] = yields_dict.pop('d')
+        yields_dict['h3'] = yields_dict.pop('t')
+        
+        
+        final_data = {} 
+        for iso, yield_mass in yields_dict.items():
+            if iso == 'n':
+                final_data['h1'] = final_data.get('h1', 0) + yield_mass
+                continue
+            # if isotope is stable, add directly
+            if iso in iso_st:
+                final_data[iso] = final_data.get(iso, 0) + yield_mass
+                continue
+
+            # if isotope has branching decay modes
+            if iso in branch_dict:
+                for target, ratio in branch_dict[iso].items():
+                    final_data[target] = final_data.get(target, 0) + yield_mass * ratio
+            elif iso in special_dict:
+                for target, ratio in special_dict[iso].items():
+                    final_data[target] = final_data.get(target, 0) + yield_mass * ratio
+            else:
+                # Automatically find the final destination (the closest/unique stable isotope with the same A)
+                try:
+                    target_stable = find_final_stable_destination(iso)
+                except Exception as e:
+                    logging.warning(f"cannot find stable destination for {iso}")
+                    continue
+                final_data[target_stable] = final_data.get(target_stable, 0) + yield_mass
+        
+        # sort final_data by (Z, A)
+        if sort_output:
+            def get_Z_A(iso_name):
+                element_name, num_A = parse_iso_name(iso_name)
+                if element_name is None:
+                    return (1000, 1000)
+                num_Z = ELEMENTS_DICT.get(element_name, 1000)
+                return (num_Z, int(num_A))
+            
+            sorted_items = sorted(final_data.items(), key=lambda x: get_Z_A(x[0]))
+            final_data = dict(sorted_items)
+                
+        return final_data
+    
+    
     
 
         

@@ -16,6 +16,7 @@ _subpackages = [
     "hoshi_reader",
     "initial_composition",
     "make_initial_models",
+    "data",
 ]
 
 for _mod in _subpackages:
