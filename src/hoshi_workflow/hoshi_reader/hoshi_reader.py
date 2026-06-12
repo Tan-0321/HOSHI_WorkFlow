@@ -9,6 +9,7 @@ import logging
 import re
 import os
 from io import StringIO
+import json
 
 import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
@@ -881,7 +882,7 @@ class HoshiProfile(HoshiModel):
             # path is the profile file inside work_dir/writestr/strXXXXX.txt
             work_dir = p.parent.parent
             data_path = p
-        elif str(path).endswith("writestr"):
+        elif str(path).endswith("writestr") or str(path).endswith("writestr/"):
             # path is the writestr directory
             work_dir = p.parent
             data_path = p / target
@@ -894,6 +895,33 @@ class HoshiProfile(HoshiModel):
                 "Invalid path provided. Path should be either a directory or a profile file."
             )
             return
+        
+        # read or create indices.json, which lists all structure data file labels.
+        self.indices = []
+        if (work_dir / "writestr" / "indices.json").exists():
+            with open(work_dir / "writestr" / "indices.json", "r") as f:
+                self.indices = json.load(f) 
+        else:
+            for file_path in (work_dir / "writestr").glob("str*.txt"):
+                match = re.search(r'^str(\d+)\.txt$', file_path.name)
+                if match:
+                    self.indices.append(int(match.group(1)))
+            self.indices.sort()
+            with open((work_dir / "writestr" / "indices.json"), "w") as f:
+                json.dump(self.indices, f)
+
+        # convert the negative str_num to positive index.
+        if str_num < 0:
+            index_pos = len(self.indices) + str_num
+            if index_pos < 0:
+                raise ValueError(f"Invalid str_num provided. structure data file with label '{str_num}' does not exist.")   
+            str_num = self.indices[index_pos]
+        else:
+            if str_num not in self.indices:
+                raise ValueError(f"Invalid str_num provided. structure data file with label '{str_num}' does not exist.")   
+        
+        target = f"str{str_num:05d}.txt"
+        data_path = work_dir / "writestr" / target
 
         # initialize base to set work_dir and related dirs
         super().__init__(work_dir)
@@ -1201,7 +1229,7 @@ class HoshiCxdata(HoshiModel):
             work_dir = p.parent.parent
             self.cx_path = p
             self.str_path = p.parent.parent / "writestr" / target_str
-        elif str(path).endswith("cxdata"):
+        elif str(path).endswith("cxdata") or str(path).endswith("cxdata/"):
             work_dir = p.parent
             self.cx_path = p / target_cx
             self.str_path = p.parent / "writestr" / target_str
@@ -1214,6 +1242,34 @@ class HoshiCxdata(HoshiModel):
             raise ValueError("Invalid path for HoshiCxdata")
 
         super().__init__(work_dir)
+        # read or create indices.json, which lists all cxdata file labels.
+        self.indices = []
+        if (work_dir / "cxdata" / "indices.json").exists():
+            with open(work_dir / "cxdata" / "indices.json", "r") as f:
+                self.indices = json.load(f) 
+        else:
+            for file_path in (work_dir / "cxdata").glob("cxdat*.txt"):
+                match = re.search(r'^cxdat(\d+)\.txt$', file_path.name)
+                if match:
+                    self.indices.append(int(match.group(1)))
+            self.indices.sort()
+            with open((work_dir / "cxdata" / "indices.json"), "w") as f:
+                json.dump(self.indices, f)
+
+        # convert the negative nstg to positive index.
+        if self.nstg < 0:
+            index_pos = len(self.indices) + self.nstg
+            if index_pos < 0:
+                raise ValueError(f"Invalid nstg provided. cxdata file with label '{self.nstg}' does not exist.")   
+            self.nstg = self.indices[index_pos]
+        else:
+            if self.nstg not in self.indices:
+                raise ValueError(f"Invalid nstg provided. cxdata file with label '{self.nstg}' does not exist.")   
+        
+        target_cx = f"cxdat{self.nstg:05d}.txt"
+        target_str = f"str{self.nstg:05d}.txt"  
+        self.cx_path = work_dir / "cxdata" / target_cx
+        self.str_path = work_dir / "writestr" / target_str      
 
         if not self.cx_path.exists():
             logging.error(f"cxdata file not found: {self.cx_path}")
