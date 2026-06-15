@@ -66,8 +66,17 @@ ELEMENTS_DICT = {
     'mc': 115, 'lv': 116, 'ts': 117, 'og': 118
 }
 
-def parse_iso_name(text):
+# Helper function to count files starting with a prefix in a directory, with optional case-insensitivity
+def count_files_starting_with(dir_path: Path, prefix: str, ignore_case: bool = False):
+    if ignore_case:
+        prefix = prefix.lower()
+        return sum(1 for x in dir_path.iterdir() if x.is_file() and x.name.lower().startswith(prefix))
+    
+    # Case-sensitive counting by default
+    return sum(1 for x in dir_path.iterdir() if x.is_file() and x.name.startswith(prefix))
 
+# Parse isotope names like 'c12' into element symbol and mass number
+def parse_iso_name(text):
     pattern = r'^([A-Za-z]{1,2})(\d{1,2})$'
     match = re.match(pattern, text)
     
@@ -901,6 +910,17 @@ class HoshiProfile(HoshiModel):
         if (work_dir / "writestr" / "indices.json").exists():
             with open(work_dir / "writestr" / "indices.json", "r") as f:
                 self.indices = json.load(f) 
+            real_file_num = count_files_starting_with(work_dir / "writestr", "str")
+            if len(self.indices) != real_file_num:
+                logging.warning(f"Number of indices in indices.json ({len(self.indices)}) does not match actual number of files ({real_file_num}). Regenerating indices.json.")
+                self.indices = []
+                for file_path in (work_dir / "writestr").glob("str*.txt"):
+                    match = re.search(r'^str(\d+)\.txt$', file_path.name)
+                    if match:
+                        self.indices.append(int(match.group(1)))
+                self.indices.sort()
+                with open((work_dir / "writestr" / "indices.json"), "w") as f:
+                    json.dump(self.indices, f)
         else:
             for file_path in (work_dir / "writestr").glob("str*.txt"):
                 match = re.search(r'^str(\d+)\.txt$', file_path.name)
@@ -1247,6 +1267,17 @@ class HoshiCxdata(HoshiModel):
         if (work_dir / "cxdata" / "indices.json").exists():
             with open(work_dir / "cxdata" / "indices.json", "r") as f:
                 self.indices = json.load(f) 
+            real_file_num = count_files_starting_with(work_dir / "cxdata", "cxdat")
+            if len(self.indices) != real_file_num :
+                logging.warning(f"Number of indices in indices.json ({len(self.indices)}) does not match actual number of files ({real_file_num}). Regenerating indices.json.")
+                self.indices = []
+                for file_path in (work_dir / "cxdata").glob("cxdat*.txt"):
+                    match = re.search(r'^cxdat(\d+)\.txt$', file_path.name)
+                    if match:
+                        self.indices.append(int(match.group(1)))
+                self.indices.sort()
+                with open((work_dir / "cxdata" / "indices.json"), "w") as f:
+                    json.dump(self.indices, f)
         else:
             for file_path in (work_dir / "cxdata").glob("cxdat*.txt"):
                 match = re.search(r'^cxdat(\d+)\.txt$', file_path.name)
