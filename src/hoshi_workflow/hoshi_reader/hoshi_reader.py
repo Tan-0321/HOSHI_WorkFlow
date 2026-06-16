@@ -77,14 +77,36 @@ def count_files_starting_with(dir_path: Path, prefix: str, ignore_case: bool = F
 
 # Parse isotope names like 'c12' into element symbol and mass number
 def parse_iso_name(text):
-    pattern = r'^([A-Za-z]{1,2})(\d{1,2})$'
-    match = re.match(pattern, text)
-    
-    if match:
-        letters = match.group(1)
-        numbers = match.group(2)
-        return letters, numbers
-    return None, None
+    '''
+    Args:
+        text: string, isotope name
+    Returns:
+        tuple: (element symbol, mass number)
+    '''
+    match text:
+        case 'n':
+            return 'n', 1
+        case 'p':
+            return 'h', 1
+        case 'd':
+            return 'h', 2
+        case 't':
+            return 'h', 3
+        case 'al-6':
+            return 'al', 26
+        case 'al*6':
+            return 'al', 26
+        case _:
+            pattern = r'^([A-Za-z]{1,2})(\d{1,2})$'
+            match = re.match(pattern, text)
+            
+            if match:
+                letters = match.group(1)
+                numbers = match.group(2)
+                return letters, numbers
+            else:
+                logging.error(f'Invalid isotope name: {text}')
+                return None, None
 
 # Decay branching and special cases
 branch_dict = {
