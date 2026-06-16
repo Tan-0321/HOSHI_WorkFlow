@@ -993,8 +993,14 @@ class HoshiProfile(HoshiModel):
 
     def data(self, var_name: str, dtype=float) -> np.ndarray:
         if var_name not in self.var_names:
-            logging.error(f"Variable name '{var_name}' not found in the file.")
-            return np.array([])
+            match var_name:
+                case "etot_spec":
+                    return self.get_etot_spec()
+                case "etot":
+                    return self.get_etot()
+                case _:
+                    logging.error(f"Variable name '{var_name}' not found in the file.")
+                    return np.array([])
 
         if self.quick_mode or self.dataframe is None:
             df = pd.read_csv(
@@ -1019,27 +1025,40 @@ class HoshiProfile(HoshiModel):
             else:
                 return col_data.to_numpy()
             
-    def get_tot_energy(self):
-
+    def get_etot_spec(self) -> np.ndarray:
+        '''
+        Calculate the total specific energy (internal + kinetic + gravitational) of each cell.
+        return: 1D numpy array of total specific energy for each cell, length equal to number of cells (ndv).
+        '''
+        
         radius = self.data("Radius")
         vel    = self.data("Vel")
         mass   = self.data("Mr")
         eint   = self.data("eint")
         
-        rad0  = 0.0
+        rad0  = 1e-20 # to avoid zero radius division at the center (mass0=0)
         vel0  = 0.0
         mass0 = 0.0
 
         v_center = 0.5 * (np.concatenate([[vel0],   vel[:-1]])   + vel)      # length ndv
-        r_center = 0.5 * (np.concatenate([[rad0],   radius[:-1]]) + radius)  # length ndv
         mass_left = np.concatenate([[mass0], mass[:-1]])  # left boundary mass, corresponding to grid j's left boundary
+        radius_left = np.concatenate([[rad0], radius[:-1]])  # left boundary radius, corresponding to grid j's left boundary
 
         # specific energy
         e_kin  = 0.5 * v_center**2
-        e_grav = -G_GRAV * mass_left * M_SUN / r_center    # mass_left[0]=0 → e_grav[0]=0
-
+        e_grav = -G_GRAV * M_SUN * 0.5 * (mass_left / radius_left + mass / radius)    # mass_left[0]=0 → e_grav[0]=0
         e_tot = eint + e_kin + e_grav
         return e_tot
+    
+    def get_etot(self) -> np.ndarray:
+        '''
+        Calculate the total energy (internal + kinetic + gravitational) of each cell.
+        return: 1D numpy array of total energy for each cell, length equal to number of cells (ndv).
+        '''
+        etot_spec = self.get_etot_spec()
+        dm = self.data('dMr')
+        etot = etot_spec * dm * M_SUN
+        return etot
     
     def metallicity(
         self,
