@@ -27,6 +27,15 @@ from .hoshi_reader import (
     # some plotting functions 
     set_plot_xtickers,
     set_plot_ytickers,
+    
+    # constants
+    G_GRAV,
+    R_SUN,
+    M_SUN,
+    L_SUN,
+
+    # Element symbol to atomic number mapping
+    ELEMENTS_DICT,
 
 )  # noqa: F401
 
@@ -46,4 +55,9 @@ __all__ = [
     "parse_iso_name",
     "set_plot_xtickers",
     "set_plot_ytickers",
+    "G_GRAV",
+    "R_SUN",
+    "M_SUN",
+    "L_SUN",
+    "ELEMENTS_DICT"
 ]

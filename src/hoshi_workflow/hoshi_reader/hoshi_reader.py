@@ -10,6 +10,7 @@ import re
 import os
 from io import StringIO
 import json
+from typing import Literal
 
 import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
@@ -103,7 +104,7 @@ def parse_iso_name(text):
             if match:
                 letters = match.group(1)
                 numbers = match.group(2)
-                return letters, numbers
+                return letters, float(numbers)
             else:
                 logging.error(f'Invalid isotope name: {text}')
                 return None, None
@@ -1708,19 +1709,30 @@ class HoshiCxdata(HoshiModel):
     
     def yields_dictionary(
         self,
-        mass_cut_idx: int | None = None
+        mass_cut_idx: int | None = None,
+        yields_unit: Literal["Msun", "num"] = "Msun"
         ) -> dict:
         """Calculate yields for all isotopes in the cxdata file.
 
         Returns:
             dict: A dictionary with isotope names as keys and their yields as values.
+            The unit of the yields is in solar masses (Msun) or number (num) depending on yields_unit.
+            the yields in number are actually the Mass(Msol)/A, where A is the mass number of the isotope.
         """
         yields = {}
         if mass_cut_idx is None:
             mass_cut_idx = 0  # default to center
         for iso in self.nuclist:
             y_iso = self.isotope_yield(iso, mass_cut_idx=mass_cut_idx )
-            yields[iso] = y_iso
+            match yields_unit:
+                case "Msun":
+                    yields[iso] = y_iso
+                case "num":
+                    iso_name, iso_A = parse_iso_name(iso)
+                    yields[iso] = y_iso / iso_A if iso_A is not None and iso_A > 0 else float('nan')
+                case _:
+                    logging.error(f"Invalid yields_unit '{yields_unit}'. Must be 'Msun' or 'num'.")
+                    yields[iso] = float('nan')
         return yields
     
     def to_stable_yields(
@@ -1728,6 +1740,7 @@ class HoshiCxdata(HoshiModel):
         stable_ref_path: None| str | Path = None,
         mass_cut_idx: int | None = None,
         sort_output: bool = True,
+        yields_unit: Literal["Msun", "num"] = "Msun"
         ) -> dict:  
         
         if stable_ref_path is None:
@@ -1777,7 +1790,10 @@ class HoshiCxdata(HoshiModel):
             target_stable_iso = f"{name_st[target_idx].lower()}{nuc_A_st[target_idx]}"
             return target_stable_iso
         
-        yields_dict = self.yields_dictionary(mass_cut_idx=mass_cut_idx)
+        yields_dict = self.yields_dictionary(
+            mass_cut_idx=mass_cut_idx,
+            yields_unit=yields_unit
+        )
         yields_dict['h1'] = yields_dict.pop('p')
         yields_dict['h2'] = yields_dict.pop('d')
         yields_dict['h3'] = yields_dict.pop('t')
